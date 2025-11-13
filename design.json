@@ -1,0 +1,293 @@
+{
+  "meta": {
+    "project_name": "Architecture Studio Website",
+    "description": "Design and motion system reverse-engineered from 25 sequential frames of an architecture portfolio page.",
+    "source_frames_ordering": "Filenames ezgif-frame-003 ... ezgif-frame-0xx sorted ascending are treated as a timeline.",
+    "overall_style": "Minimalist, editorial layout with oversized typography, neutral palette, and hero-scale imagery."
+  },
+  "layout": {
+    "page_width": {
+      "max_width_px": 1280,
+      "content_alignment": "center"
+    },
+    "grid": {
+      "columns": 12,
+      "gutter_px": 24,
+      "margin_x_px": 80,
+      "margin_y_px": 80,
+      "notes": "Hero text spans centered 8/12 columns with generous side margins; imagery bands often run edge-to-edge while text blocks remain within the grid. Project detail galleries use 12-column full bleed rows with 2-3 images each occupying 4-6 columns."
+    },
+    "sections": {
+      "hero": {
+        "height_behavior": "full-viewport",
+        "layout_pattern": "centered_text",
+        "typical_elements": [
+          "logo",
+          "primary_nav",
+          "headline",
+          "supporting_text",
+          "primary_button",
+          "hero_image"
+        ]
+      },
+      "projects_overview": {
+        "layout_pattern": "grid",
+        "columns_desktop": 2,
+        "columns_tablet": 2,
+        "columns_mobile": 1,
+        "card_alignment": "center",
+        "notes": "Cards float in overlapping positions with angled rotation, ~32px vertical gaps and generous white space; large translucent typographic backdrop ('PROJECTS') spans the section."
+      },
+      "project_detail": {
+        "layout_pattern": "full-width hero image then narrow text column",
+        "content_flow": [
+          "title_block",
+          "project_meta_row",
+          "hero_image",
+          "description_paragraphs",
+          "image_gallery",
+          "credits"
+        ]
+      },
+      "about": {
+        "layout_pattern": "single-column",
+        "notes": "Centered headline followed by a boxed paragraph block; all content sits within mid-page width with ample top/bottom breathing room."
+      },
+      "contact": {
+        "layout_pattern": "form + info",
+        "notes": "Not fully visible; infer right-aligned call-to-action button with supporting text or contact details beside a compact form."
+      }
+    }
+  },
+  "spacing": {
+    "base_unit_px": 4,
+    "scale_px": [4, 8, 12, 16, 24, 32, 40, 48, 64, 80, 96],
+    "usage": {
+      "section_padding_y": 96,
+      "section_padding_x": 80,
+      "between_headline_and_body": 16,
+      "between_cards": 32,
+      "between_form_fields": 16,
+      "notes": "Overall feel is very airy with consistent vertical rhythm; sections breathe with ~96px top/bottom spacing and content stacks with even 16–32px increments."
+    }
+  },
+  "typography": {
+    "font_families": {
+      "primary": {
+        "name_or_style": "Geometric grotesque sans, likely similar to Neue Haas Grotesk or Inter",
+        "usage": "Headlines and body"
+      },
+      "secondary": {
+        "name_or_style": "Condensed uppercase sans used for chips and nav links",
+        "usage": "Accents, navigation, small labels"
+      }
+    },
+    "scale": {
+      "display": {
+        "size_px": 72,
+        "line_height_px": 72,
+        "weight": 500,
+        "tracking": "tight"
+      },
+      "h1": {
+        "size_px": 48,
+        "line_height_px": 52,
+        "weight": 500
+      },
+      "h2": {
+        "size_px": 36,
+        "line_height_px": 40,
+        "weight": 500
+      },
+      "h3": {
+        "size_px": 24,
+        "line_height_px": 30,
+        "weight": 500
+      },
+      "body_lg": {
+        "size_px": 18,
+        "line_height_px": 28,
+        "weight": 400
+      },
+      "body": {
+        "size_px": 16,
+        "line_height_px": 24,
+        "weight": 400
+      },
+      "caption": {
+        "size_px": 12,
+        "line_height_px": 16,
+        "weight": 400,
+        "transform": "uppercase"
+      }
+    },
+    "usage_rules": {
+      "page_titles": "Use display or h1 weights in uppercase, centered or slightly left of center, often paired with animated mask effects.",
+      "project_titles": "Use h2 uppercase centered above galleries; underline or thin dividers are not used, whitespace separates elements.",
+      "body_text": "Maintain ~60ch max-width, center-aligned in hero/about, left-aligned for project descriptions.",
+      "meta_labels": "All caps captions with increased letter spacing, usually inside pill chips."
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": {
+        "primary": "#FFFFFF",
+        "alternate": "#F2F2F2"
+      },
+      "text": {
+        "primary": "#111111",
+        "muted": "#707070",
+        "on_dark": "#FFFFFF"
+      },
+      "brand": {
+        "primary": "#111111",
+        "secondary": "#E0E0E0",
+        "accent": "#C8B080"
+      },
+      "feedback": {
+        "success": "#3BA776",
+        "error": "#D14B4B",
+        "warning": "#E2A93B"
+      }
+    },
+    "usage_rules": {
+      "backgrounds": "Pure white dominates; alternate light grey panels reserve for hover/transition overlays and loading states.",
+      "text": "Primary headings and body text use near-black; muted grey for supporting copy, navigation, and labels.",
+      "links_and_cta": "Buttons use outline black stroke with white fill; hover fills with soft grey tint while maintaining black text.",
+      "over_image": "Text placed over imagery leverages semi-opaque white chips or stays off-image to keep readability."
+    }
+  },
+  "components": {
+    "navbar": {
+      "position": "sticky",
+      "background": "transparent_over_hero",
+      "height_px": 72,
+      "elements": [
+        "logo_left",
+        "nav_links_center_or_right",
+        "language_switcher",
+        "hamburger_on_mobile"
+      ],
+      "behavior": "Logo and links remain top-aligned; on scroll, nav gains subtle white backdrop and hairline bottom border for contrast."
+    },
+    "footer": {
+      "layout": "multi-column",
+      "elements": [
+        "studio_name",
+        "address",
+        "contact_details",
+        "social_icons",
+        "copyright"
+      ]
+    },
+    "buttons": {
+      "variants": {
+        "primary": {
+          "style": "outline",
+          "border_radius_px": 999,
+          "padding_y_px": 12,
+          "padding_x_px": 32,
+          "text_transform": "uppercase"
+        },
+        "secondary": {
+          "style": "ghost",
+          "border_radius_px": 999
+        }
+      },
+      "hover": {
+        "effects": [
+          "background_tint",
+          "border_change",
+          "slight_scale"
+        ],
+        "animation_duration_ms": 150,
+        "observed_from_frames": "Outline button gains light grey fill and subtle scale-up when hovered (ezgif-frame-018 → 019)."
+      }
+    },
+    "project_card": {
+      "image_ratio": "3:4",
+      "elements_order": [
+        "image",
+        "category_label",
+        "project_title",
+        "location_or_year"
+      ],
+      "hover_behavior": "Cards rise and rotate minutely back to level, image scales up ~5%, and chip gains higher contrast (ezgif-frame-006 → 010).",
+      "spacing": "Image edges flush; text chip overlaps lower left with ~12px inset from image edge."
+    },
+    "tag_or_meta_chip": {
+      "shape": "pill",
+      "border_radius_px": 999,
+      "padding_x_px": 12,
+      "padding_y_px": 4,
+      "usage": "Project locations, awards, section labels."
+    },
+    "image_gallery": {
+      "layout": "grid",
+      "behavior": "Static multi-column grid; images fade in sequentially on scroll and maintain equal gutter spacing."
+    },
+    "forms": {
+      "field_style": "boxed",
+      "border_radius_px": 0,
+      "label_style": "above_field",
+      "notes": "Wide spacing between fields (~16px); focus state likely adds dark underline and uppercase label accent."
+    }
+  },
+  "effects": {
+    "radii": {
+      "global_radius_px": 0,
+      "notes": "All containers and imagery use sharp corners; only chips and CTAs feature rounded pill treatment."
+    },
+    "shadows": {
+      "usage": "none",
+      "examples": [
+        "card_shadow": "0 12px 24px rgba(0,0,0,0.08) during hover on floating project cards."
+      ]
+    },
+    "borders": {
+      "style": "hairline_dividers",
+      "colour": "#E0E0E0",
+      "notes": "Applied to navbar separation on scroll, button outlines, and occasional content boxes."
+    },
+    "animations": {
+      "page_transitions": "Loading screen replaces O with rotating project image while headline fades in.",
+      "on_scroll": "Large typographic layers scale/translate masking effect; images slide upward with slight rotation correction; text blocks fade in with vertical offset.",
+      "interaction": "Buttons tint and scale; project cards un-tilt and zoom; chips brighten subtly.",
+      "timing_defaults_ms": 200,
+      "easing_defaults": "cubic-bezier(0.25, 0.1, 0.25, 1.0)",
+      "frame_based_observations": [
+        "ezgif-frame-003 → 007: Hero headline reveals via horizontal mask sweep while background type scales.",
+        "ezgif-frame-008 → 012: Project cards slide diagonally and straighten as the section comes into view.",
+        "ezgif-frame-020 → 024: Gallery images fade in sequential columns while location chip stays fixed at top center."
+      ]
+    }
+  },
+  "imagery": {
+    "subjects": "Architecture photography, interiors, exteriors, pools, minimalist residential spaces.",
+    "style": "Natural daylight, neutral color grading, high dynamic range with clean compositions.",
+    "dominant_ratios": ["3:4", "16:9"],
+    "treatments": {
+      "borders": "none",
+      "corner_style": "square",
+      "overlays": "No overlays; occasional masked crops animate across typography."
+    }
+  },
+  "design_principles": {
+    "keywords": [
+      "minimalism",
+      "grid-discipline",
+      "large_imagery",
+      "neutral_palette",
+      "strong_typography",
+      "calm_motion"
+    ],
+    "rules": [
+      "Use generous whitespace around key sections and project imagery.",
+      "Limit accent colors to maintain a restrained, architectural feel.",
+      "Keep typography system tight: 1 primary sans-serif, optional secondary type only for emphasis.",
+      "Align all elements to a strict grid; avoid arbitrary offsets.",
+      "Let imagery and layout tell the story; UI chrome remains understated.",
+      "Animations should be subtle and smooth, supporting content rather than distracting from it."
+    ]
+  }
+}
