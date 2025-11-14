@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import Container from "@/components/Container";
 import heroImage from "@/img/hero.jpg";
 
 const textVariants = {
@@ -16,9 +17,9 @@ const textVariants = {
 const Hero = () => (
   <section
     id="hero"
-    className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 pb-24 pt-32 md:px-20"
+    className="relative flex min-h-screen items-center justify-center overflow-hidden pb-24 pt-32"
   >
-    <div className="relative z-10 grid w-full max-w-6xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+    <Container className="relative z-10 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
       <motion.div
         initial="hidden"
         animate="visible"
@@ -112,7 +113,7 @@ const Hero = () => (
           </span>
         </motion.div>
       </motion.div>
-    </div>
+    </Container>
   </section>
 );
 

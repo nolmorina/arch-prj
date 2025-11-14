@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Container from "@/components/Container";
 import type { Project, ProjectGalleryImage } from "@/lib/projects";
 
 type ProjectDetailProps = {
@@ -53,8 +54,8 @@ const ProjectDetail = ({ project }: ProjectDetailProps) => {
     <>
       <Navbar />
       <main className="flex min-h-screen flex-col bg-background text-text">
-        <section className="relative overflow-hidden px-6 pt-28 pb-24 md:px-20">
-          <div className="mx-auto max-w-6xl">
+        <section className="relative overflow-hidden pb-24 pt-28">
+          <Container>
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -77,7 +78,7 @@ const ProjectDetail = ({ project }: ProjectDetailProps) => {
                 onOpen={setActiveIndex}
               />
             </div>
-          </div>
+          </Container>
         </section>
       </main>
       <Footer />

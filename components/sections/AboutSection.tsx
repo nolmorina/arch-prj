@@ -1,13 +1,14 @@
 'use client';
 
 import { motion } from "framer-motion";
+import Container from "@/components/Container";
 
 const AboutSection = () => (
   <section
     id="studio"
-    className="relative bg-background-alternate px-6 py-24 md:px-20 md:py-32"
+    className="relative bg-background-alternate py-24 md:py-32"
   >
-    <div className="mx-auto flex max-w-4xl flex-col items-center gap-10 text-center">
+    <Container className="flex flex-col items-center gap-10 text-center lg:max-w-4xl">
       <motion.span
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -47,7 +48,7 @@ const AboutSection = () => (
           considered living.
         </p>
       </motion.div>
-    </div>
+    </Container>
   </section>
 );
 

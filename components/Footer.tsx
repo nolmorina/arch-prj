@@ -1,8 +1,9 @@
 import Link from "next/link";
+import Container from "@/components/Container";
 
 const Footer = () => (
-  <footer className="border-t border-brand-secondary bg-background px-6 py-16 md:px-20">
-    <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-[1.2fr_1fr]">
+  <footer className="border-t border-brand-secondary bg-background py-16">
+    <Container className="grid gap-12 md:grid-cols-[1.2fr_1fr]">
       <div className="space-y-6">
         <h3 className="font-condensed text-sm uppercase tracking-[0.32em] text-text-muted">
           Atelier Forma
@@ -54,8 +55,8 @@ const Footer = () => (
           </ul>
         </div>
       </div>
-    </div>
-    <div className="mx-auto mt-16 flex max-w-6xl flex-col gap-4 text-sm text-text-muted md:flex-row md:items-center md:justify-between">
+    </Container>
+    <Container className="mt-16 flex flex-col gap-4 text-sm text-text-muted md:flex-row md:items-center md:justify-between">
       <span>© {new Date().getFullYear()} Atelier Forma. All rights reserved.</span>
       <div className="flex gap-6 font-condensed text-xs uppercase tracking-[0.32em]">
         <Link href="#" className="hover:text-text">
@@ -65,7 +66,7 @@ const Footer = () => (
           Credits
         </Link>
       </div>
-    </div>
+    </Container>
   </footer>
 );
 

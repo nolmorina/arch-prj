@@ -1,13 +1,14 @@
 'use client';
 
 import { motion } from "framer-motion";
+import Container from "@/components/Container";
 
 const ContactSection = () => (
   <section
     id="contact"
-    className="bg-background px-6 py-24 md:px-20 md:py-32"
+    className="bg-background py-24 md:py-32"
   >
-    <div className="mx-auto max-w-6xl">
+    <Container>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -19,17 +20,17 @@ const ContactSection = () => (
           <span className="rounded-full border border-brand-secondary px-5 py-2 font-condensed text-xs uppercase tracking-[0.28em] text-text-muted">
             Contact
           </span>
-          <h2 className="text-3xl font-medium uppercase tracking-tightest text-text md:text-[2.75rem]">
+          <h2 className="text-[1.75rem] font-medium uppercase tracking-tightest text-text leading-tight md:text-[2.75rem]">
             Let’s shape your next space together.
           </h2>
         </div>
-        <p className="max-w-md text-text-muted md:text-lg">
+        <p className="max-w-md text-base leading-relaxed text-text-muted md:text-lg">
           Share your vision, timelines, and references. We respond to new
           enquiries within two business days.
         </p>
       </motion.div>
 
-      <div className="grid gap-16 md:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.1fr_0.9fr] md:gap-16">
         <motion.form
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -43,7 +44,7 @@ const ContactSection = () => (
               name="name"
               type="text"
               placeholder="Your name"
-              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-sm uppercase tracking-[0.18em] text-text outline-none transition focus:border-text"
+              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-xs uppercase tracking-[0.15em] text-text outline-none transition focus:border-text md:text-sm"
             />
           </FormField>
           <FormField label="Email" htmlFor="email">
@@ -52,7 +53,7 @@ const ContactSection = () => (
               name="email"
               type="email"
               placeholder="studio@email.com"
-              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-sm uppercase tracking-[0.18em] text-text outline-none transition focus:border-text"
+              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-xs uppercase tracking-[0.15em] text-text outline-none transition focus:border-text md:text-sm"
             />
           </FormField>
           <FormField label="Project Type" htmlFor="projectType">
@@ -61,7 +62,7 @@ const ContactSection = () => (
               name="projectType"
               type="text"
               placeholder="Residence, gallery, hospitality..."
-              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-sm uppercase tracking-[0.18em] text-text outline-none transition focus:border-text"
+              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-xs uppercase tracking-[0.15em] text-text outline-none transition focus:border-text md:text-sm"
             />
           </FormField>
           <FormField label="Message" htmlFor="message">
@@ -70,14 +71,14 @@ const ContactSection = () => (
               name="message"
               rows={4}
               placeholder="Share project scope, timelines, or inspiration."
-              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-sm uppercase tracking-[0.18em] text-text outline-none transition focus:border-text"
+              className="w-full border border-brand-secondary bg-transparent px-4 py-3 text-xs uppercase tracking-[0.15em] text-text outline-none transition focus:border-text md:text-sm"
             />
           </FormField>
           <motion.button
             type="submit"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center justify-center rounded-full border border-text px-12 py-3 font-condensed text-xs uppercase tracking-[0.32em] transition hover:bg-brand-secondary"
+            className="inline-flex items-center justify-center rounded-full border border-text px-12 py-3 font-condensed text-[0.65rem] uppercase tracking-[0.28em] transition hover:bg-brand-secondary md:text-xs"
           >
             Send enquiry
           </motion.button>
@@ -88,7 +89,7 @@ const ContactSection = () => (
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.9, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-          className="flex flex-col gap-10 border border-brand-secondary px-10 py-12"
+          className="flex flex-col gap-8 border border-brand-secondary px-6 py-10 sm:px-8 md:gap-10 md:px-10 md:py-12"
         >
           <div>
             <h3 className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
@@ -120,7 +121,7 @@ const ContactSection = () => (
               </a>
             </p>
           </div>
-          <div className="flex items-center gap-4 font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
+          <div className="flex flex-wrap items-center gap-3 font-condensed text-[0.65rem] uppercase tracking-[0.24em] text-text-muted md:gap-4 md:text-xs">
             <a href="#" className="transition hover:text-text">
               Instagram
             </a>
@@ -135,7 +136,7 @@ const ContactSection = () => (
           </div>
         </motion.div>
       </div>
-    </div>
+    </Container>
   </section>
 );
 
@@ -147,7 +148,7 @@ type FormFieldProps = {
 
 const FormField = ({ label, htmlFor, children }: FormFieldProps) => (
   <label htmlFor={htmlFor} className="block space-y-3">
-    <span className="font-condensed text-[0.7rem] uppercase tracking-[0.32em] text-text-muted">
+    <span className="font-condensed text-[0.6rem] uppercase tracking-[0.32em] text-text-muted md:text-[0.7rem]">
       {label}
     </span>
     {children}
