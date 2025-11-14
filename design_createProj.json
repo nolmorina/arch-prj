@@ -1,0 +1,359 @@
+{
+  "meta": {
+    "page_name": "Admin Project Dashboard",
+    "purpose": "Allow authorized studio admins to create, edit, and delete portfolio projects while mirroring the minimalist look-and-feel of the public site.",
+    "updated_at": "2025-11-14",
+    "source_repo": "/Users/nolinjo/Desktop/Architecture/arch-prj",
+    "references": [
+      { "file": "lib/projects.ts", "description": "Single source of truth for Project type and sample data." },
+      { "file": "components/sections/ProjectsSection.tsx", "description": "Defines how project summaries appear on the home page grid." },
+      { "file": "components/projects/ProjectDetail.tsx", "description": "Defines full project view, including sidebar, gallery, and lightbox requirements." },
+      { "file": "components/ProjectCard.tsx", "description": "Outlines card content, ratios, and hover style used in listings." },
+      { "file": "design.json", "description": "Existing visual system guidelines to match." }
+    ],
+    "visual_alignment": {
+      "palette": ["#FFFFFF", "#F2F2F2", "#111111", "#707070", "#E0E0E0", "#C8B080"],
+      "typefaces": {
+        "primary": "Inter (var(--font-inter))",
+        "secondary": "Archivo Condensed (var(--font-archivo))"
+      },
+      "motifs": [
+        "pill chips with uppercase letter spacing",
+        "hairline borders",
+        "outline buttons that fill on hover",
+        "masked headline reveals"
+      ]
+    }
+  },
+  "audit": {
+    "project_model": {
+      "type_alias": "Project (lib/projects.ts)",
+      "fields": [
+        {
+          "name": "slug",
+          "type": "string",
+          "required": true,
+          "constraints": ["unique", "kebab-case", "<= 60 chars"],
+          "used_in": [
+            "Dynamic routes /projects/[slug]",
+            "ProjectCard href",
+            "generateStaticParams",
+            "Lightbox image keys"
+          ],
+          "ui_guidance": "Auto-generate from Title with option to edit inside an advanced settings accordion."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "used_in": ["Project hero heading", "ProjectCard", "Lightbox header", "Document title"],
+          "ui_guidance": "Large text input with live character count (max 120)."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "required": true,
+          "used_in": ["Hero chip", "ProjectCard chip"],
+          "ui_guidance": "Dropdown of common categories with free-type fallback."
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": true,
+          "used_in": ["ProjectCard metadata", "Hero location chip", "Meta list"],
+          "ui_guidance": "Text input; show helper example 'Lisbon, Portugal'."
+        },
+        {
+          "name": "year",
+          "type": "string",
+          "required": true,
+          "constraints": ["YYYY or YYYY–YYYY"],
+          "used_in": ["ProjectCard", "Hero meta row", "Meta list"],
+          "ui_guidance": "Masked numeric field; warn if out of reasonable range (1900–2100)."
+        },
+        {
+          "name": "heroImage",
+          "type": "StaticImageData",
+          "required": true,
+          "used_in": ["ProjectCard image", "ProjectDetail hero figure", "Gallery fallback"],
+          "ui_guidance": "Image upload or library picker enforcing 3:4 to 4:3 crop with min 2000px width."
+        },
+        {
+          "name": "heroCaption",
+          "type": "string",
+          "required": true,
+          "used_in": ["ProjectDetail figcaption"],
+          "ui_guidance": "Textarea limited to 140 characters."
+        },
+        {
+          "name": "excerpt",
+          "type": "string",
+          "required": true,
+          "used_in": ["ProjectDetail intro paragraph", "SEO description"],
+          "ui_guidance": "Textarea (max ~360 chars) with soft warning at 300."
+        },
+        {
+          "name": "description",
+          "type": "string[]",
+          "required": true,
+          "used_in": ["Narrative section paragraphs"],
+          "ui_guidance": "Repeater list (min 2, max 4 items) with rich text disabled to keep plain paragraphs."
+        },
+        {
+          "name": "meta",
+          "type": "Array<{label: string; value: string}>",
+          "required": true,
+          "used_in": ["Project information sidebar"],
+          "ui_guidance": "Key/value repeater; enforce unique labels; provide presets (Location, Year, Scope, Size/Status)."
+        },
+        {
+          "name": "services",
+          "type": "string[]",
+          "required": true,
+          "used_in": ["Services list in sidebar"],
+          "ui_guidance": "Tag repeater with drag handle to reorder."
+        },
+        {
+          "name": "collaborators",
+          "type": "string[]",
+          "required": true,
+          "used_in": ["Collaborators list"],
+          "ui_guidance": "Repeater with optional role hint field (split by —)."
+        },
+        {
+          "name": "gallery",
+          "type": "Array<{image: StaticImageData; caption: string}>",
+          "required": true,
+          "used_in": ["Project gallery grid", "Lightbox carousel"],
+          "ui_guidance": "Media manager with drag-and-drop ordering; require caption; minimum 3 entries."
+        }
+      ]
+    },
+    "main_page_dependencies": [
+      {
+        "section": "Hero (components/sections/Hero.tsx)",
+        "inputs": [
+          "Static heroImage asset",
+          "Headline copy",
+          "Studio description",
+          "CTA labels"
+        ],
+        "notes": "Currently static; admin page should echo typography and chip treatments."
+      },
+      {
+        "section": "ProjectsSection (components/sections/ProjectsSection.tsx)",
+        "inputs": [
+          "projects[].heroImage",
+          "projects[].category",
+          "projects[].title",
+          "projects[].location",
+          "projects[].year"
+        ],
+        "notes": "Any new project must contain these to render in the grid and in load-more pagination."
+      },
+      {
+        "section": "About & Contact",
+        "inputs": [
+          "Static copy",
+          "Form fields with labels from ContactSection"
+        ],
+        "notes": "Styling reference for boxed panels and forms; admin UI should reuse label/field hierarchy."
+      }
+    ],
+    "project_page_dependencies": [
+      {
+        "section": "ProjectHero",
+        "required_fields": ["title", "category", "excerpt", "location", "year", "heroImage", "heroCaption"]
+      },
+      {
+        "section": "ProjectSidebar meta cards",
+        "required_fields": ["meta[]", "description[]", "services[]", "collaborators[]"],
+        "notes": "Meta list expects label/value pairs; narrative expects multiple paragraphs."
+      },
+      {
+        "section": "ProjectGallery + Lightbox",
+        "required_fields": ["gallery[].image", "gallery[].caption"],
+        "notes": "Grid truncates to 4 items before revealing button; Lightbox iterates entire gallery, so ordering matters."
+      }
+    ],
+    "global_design_tokens": {
+      "colors_ref": "tailwind.config.ts",
+      "typography_ref": "app/layout.tsx (Inter + Archivo)",
+      "container_rules": "components/Container.tsx (max width breakpoints)"
+    }
+  },
+  "layout": {
+    "grid": {
+      "columns": 12,
+      "content_max_width_px": 1280,
+      "gutters_px": 24,
+      "section_padding_y_px": 96,
+      "background_layers": ["#FFFFFF main canvas", "#F2F2F2 accent blocks"]
+    },
+    "sections": [
+      {
+        "id": "admin_navbar",
+        "position": "fixed_top",
+        "height_px": 72,
+        "contents": ["Logo lockup with 'Admin' pill", "Breadcrumb (Dashboard)", "Logout/Back-to-site button"],
+        "style": "Rounded-full glass nav identical to Navbar but with muted beige background when scrolled."
+      },
+      {
+        "id": "intro_header",
+        "layout": "full-width hero",
+        "contents": [
+          "Section label chip 'Projects Admin'",
+          "Headline 'Curate the portfolio'",
+          "Supporting copy explaining autosave behavior",
+          "Primary CTA button 'Create project'"
+        ],
+        "notes": "Mirrors public hero spacing; background typographic watermark 'ADMIN'."
+      },
+      {
+        "id": "dashboard_split",
+        "layout": "two-column (lg: 5/7 split, stack on mobile)",
+        "left_panel": "Project list with filters",
+        "right_panel": "Editor form within bordered panels",
+        "spacing": "32px gap, cards float with slight rotations similar to ProjectCard group."
+      },
+      {
+        "id": "preview_strip",
+        "layout": "full-width band",
+        "contents": [
+          "Live preview of ProjectCard",
+          "Toggle to view 'Detail hero' mock",
+          "Info text about responsive crop"
+        ],
+        "notes": "Sits below form; uses background.alternate."
+      }
+    ],
+    "responsive_rules": {
+      "mobile": "Stack panels vertically; sticky action bar docked at bottom.",
+      "tablet": "Use 1fr / 1fr columns with shared action bar.",
+      "desktop": "Left list scrolls independently inside 80vh container; right form scrolls page."
+    }
+  },
+  "components": {
+    "ProjectListPanel": {
+      "description": "Displays existing projects in a scrollable grid for quick selection.",
+      "data_displayed": ["title", "category", "location", "year", "lastEdited timestamp (derived)"],
+      "interactions": [
+        "Click card to load into editor",
+        "Hover lifts card (reuse ProjectCard interaction)",
+        "Kebab menu for duplicate or delete"
+      ],
+      "filters": [
+        "Search input filtering title/location",
+        "Category pills",
+        "Sort dropdown (Newest, Alphabetical)"
+      ]
+    },
+    "ProjectForm": {
+      "description": "Primary editor with three collapsible groups reflecting data model.",
+      "groups": [
+        {
+          "id": "essentials",
+          "title": "Essentials",
+          "fields": ["Title", "Slug", "Category", "Location", "Year", "Hero image", "Hero caption", "Excerpt"]
+        },
+        {
+          "id": "narrative",
+          "title": "Narrative",
+          "fields": ["Description paragraphs repeater", "Meta key/value list", "Services tags", "Collaborators list"]
+        },
+        {
+          "id": "gallery",
+          "title": "Gallery",
+          "fields": ["Image upload grid", "Drag handles for order", "Caption inputs", "Primary hero toggle option"]
+        }
+      ],
+      "style": "Bordered white panels over alternate background; uppercase labels with tracking identical to ContactSection."
+    },
+    "MetaRepeater": {
+      "controls": ["Add item button", "Preset dropdown", "Inline delete icon"],
+      "validation": "Both label and value required; label auto-capitalizes."
+    },
+    "GalleryManager": {
+      "features": ["Drag & drop upload", "Reorder via grab handles", "Badge showing index 01, 02...", "Quick action to copy caption"],
+      "preview_ratio": "Aspect box switching between 3:4 and 5:3 on hover to mimic ProjectGallery layout presets."
+    },
+    "ActionBar": {
+      "placement": "Sticky at bottom of viewport (mobile) or top-right (desktop)",
+      "buttons": ["Save draft", "Publish/Update", "Delete project"],
+      "button_style": "Outline/pill consistent with hero CTAs; destructive button uses thin red border but same typography."
+    },
+    "DeleteConfirm": {
+      "pattern": "Modal overlay matching Lightbox aesthetic (blurred background, centered panel)",
+      "copy": "Confirms slug, warns about static export regeneration."
+    },
+    "ToastStack": {
+      "position": "bottom-right",
+      "variants": ["success", "error", "info"],
+      "style": "Rounded rectangles with subtle shadow-card reference."
+    }
+  },
+  "flows": {
+    "create_project": [
+      "Admin clicks 'Create project' button in Intro header or empty state.",
+      "Blank form loads with generated placeholder slug and hero slot.",
+      "Admin fills Essentials; validation inline.",
+      "Narrative and Gallery groups expand sequentially; autosave drafts after each group submission.",
+      "Preview strip updates live using entered data.",
+      "Save or Publish triggers mutation; upon success list inserts new card at top and focus scrolls to it."
+    ],
+    "edit_project": [
+      "Selecting a project from list loads data into form and preview.",
+      "Dirty state indicator shows unsaved changes.",
+      "'Publish update' becomes available once validations pass.",
+      "Success toast references project title; list card shows 'Updated just now'."
+    ],
+    "delete_project": [
+      "From card kebab or ActionBar, admin chooses Delete.",
+      "Modal asks to type project title to confirm.",
+      "On confirm, card animates out, referencing ProjectsSection card exit motion.",
+      "Toast confirms removal; if currently editing, form resets to blank state."
+    ]
+  },
+  "states_and_validation": {
+    "field_validation": [
+      { "field": "title", "rules": ["required", "maxLength:120"] },
+      { "field": "slug", "rules": ["required", "unique", "pattern:^[a-z0-9-]+$"] },
+      { "field": "year", "rules": ["required", "pattern:^(19|20|21)\\d{2}(-\\d{2})?$"] },
+      { "field": "heroImage", "rules": ["required", "minWidth:2000px", "ratioBetween:0.75-1.33"] },
+      { "field": "excerpt", "rules": ["required", "maxLength:360"] },
+      { "field": "description", "rules": ["minItems:2", "maxItems:4", "eachMinLength:80"] },
+      { "field": "meta", "rules": ["minItems:3", "uniqueLabels"] },
+      { "field": "gallery", "rules": ["minItems:3", "maxItems:12"] }
+    ],
+    "form_states": [
+      "pristine",
+      "dirty",
+      "saving",
+      "saved",
+      "error"
+    ],
+    "error_handling": {
+      "display": "Inline red text with uppercase label plus icon; summary toast for blocking errors.",
+      "common_errors": ["Duplicate slug", "Missing gallery image", "Upload failure"]
+    },
+    "autosave": {
+      "trigger": "After 2 seconds of inactivity per group",
+      "feedback": "Condensed label 'Saved • 12:04' near group title"
+    }
+  },
+  "integration_notes": {
+    "type_safety": "Reuse Project and ProjectGalleryImage TypeScript types to ensure parity with lib/projects.ts.",
+    "storage_strategy": "Short-term can mutate local JSON or mock API; eventual plan is API route (e.g., app/api/projects).",
+    "preview_binding": "Use shared ProjectCard and ProjectDetail components in read-only mode for authenticity; wrap in Suspense to avoid admin page re-render costs.",
+    "routing": "After publish, navigate to /projects/[slug] in new tab for verification.",
+    "styling": "Reuse tailwind tokens (background, text, brand) and Container component to guarantee consistent paddings."
+  },
+  "open_questions": [
+    "Will hero/about/contact copy ever be editable from admin, or remain static?",
+    "Should we support draft vs published status for projects?",
+    "Where are image assets stored (local import, CDN, or CMS)? This affects upload UI.",
+    "Is slug change allowed after publish (requires redirect)?",
+    "Do we need role-based access control beyond a simple admin view?"
+  ]
+}
+
