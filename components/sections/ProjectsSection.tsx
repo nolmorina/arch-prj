@@ -28,7 +28,7 @@ const ProjectsSection = ({ projects }: ProjectsSectionProps) => {
   return (
     <section
       id="projects"
-      className="relative overflow-hidden bg-background py-24 md:py-32"
+      className="relative overflow-hidden bg-background py-14 md:py-20"
     >
       <Container className="relative z-10">
         <motion.div
@@ -36,7 +36,7 @@ const ProjectsSection = ({ projects }: ProjectsSectionProps) => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.5 }}
           transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-          className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 text-center"
+          className="mx-auto -mt-8 flex w-full max-w-5xl flex-col items-center gap-6 text-center md:-mt-14"
         >
           <span className="rounded-full border border-brand-secondary px-5 py-2 font-condensed text-xs uppercase tracking-[0.28em] text-text-muted">
             Portfolio
