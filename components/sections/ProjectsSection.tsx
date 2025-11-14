@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import ProjectCard, { type Project } from "../ProjectCard";
+
+import type { Project } from "@/lib/projects";
+import ProjectCard from "../ProjectCard";
 
 type ProjectsSectionProps = {
   projects: Project[];
@@ -61,7 +63,7 @@ const ProjectsSection = ({ projects }: ProjectsSectionProps) => {
 
       <div className="mx-auto mt-20 grid max-w-6xl justify-items-center gap-14 sm:grid-cols-2 lg:grid-cols-3">
         {visibleProjects.map((project, index) => (
-          <ProjectCard key={project.title} project={project} index={index} />
+          <ProjectCard key={project.slug} project={project} index={index} />
         ))}
       </div>
 
