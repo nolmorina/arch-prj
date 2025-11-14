@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 const navLinks = [
-  { href: "#projects", label: "Projects" },
-  { href: "#studio", label: "Studio" },
-  { href: "#contact", label: "Contact" }
+  { href: "/#projects", label: "Projects" },
+  { href: "/#studio", label: "Studio" },
+  { href: "/#contact", label: "Contact" }
 ];
 
 const Navbar = () => {
@@ -76,8 +76,9 @@ const Navbar = () => {
       >
         <div className="flex flex-col gap-4 text-xs uppercase tracking-wider md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-3">
-            <Link href="#" className="font-condensed text-sm tracking-wider">
-              Atelier Forma
+            <Link href="/" className="font-condensed text-sm tracking-wider">
+              <span className="md:hidden">MOR ARCH. STUDIO</span>
+              <span className="hidden md:inline">MOR ARCHITECTURE STUDIO</span>
             </Link>
             <div className="relative md:hidden" ref={menuRef}>
               <button
