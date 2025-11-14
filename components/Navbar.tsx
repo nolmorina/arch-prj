@@ -77,8 +77,14 @@ const Navbar = () => {
         <div className="flex flex-col gap-4 text-xs uppercase tracking-wider md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-3">
             <Link href="/" className="font-condensed text-sm tracking-wider">
-              <span className="md:hidden">MOR ARCH. STUDIO</span>
-              <span className="hidden md:inline">MOR ARCHITECTURE STUDIO</span>
+              <span className="md:hidden">
+                <span className="font-semibold uppercase tracking-wider">MOR</span>{" "}
+                ARCH. STUDIO
+              </span>
+              <span className="hidden md:inline">
+                <span className="font-semibold uppercase tracking-wider">MOR</span>{" "}
+                ARCHITECTURE STUDIO
+              </span>
             </Link>
             <div className="relative md:hidden" ref={menuRef}>
               <button
