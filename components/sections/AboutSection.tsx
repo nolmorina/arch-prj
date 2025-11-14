@@ -6,7 +6,7 @@ import Container from "@/components/Container";
 const AboutSection = () => (
   <section
     id="studio"
-    className="relative bg-background-alternate py-24 md:py-32"
+    className="relative bg-background-alternate py-24 scroll-mt-18 md:py-32 md:scroll-mt-23"
   >
     <Container className="flex flex-col items-center gap-10 text-center lg:max-w-4xl">
       <motion.span

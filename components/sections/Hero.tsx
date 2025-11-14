@@ -17,7 +17,7 @@ const textVariants = {
 const Hero = () => (
   <section
     id="hero"
-    className="relative flex min-h-screen items-center justify-center overflow-hidden pb-24 pt-32"
+    className="relative flex min-h-screen items-center justify-center overflow-hidden pb-14 pt-32 md:pb-20"
   >
     <Container className="relative z-10 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
       <motion.div

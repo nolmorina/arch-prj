@@ -6,7 +6,7 @@ import Container from "@/components/Container";
 const ContactSection = () => (
   <section
     id="contact"
-    className="bg-background py-24 md:py-32"
+    className="bg-background py-14 md:py-20"
   >
     <Container>
       <motion.div
