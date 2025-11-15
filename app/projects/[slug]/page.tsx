@@ -25,12 +25,12 @@ export async function generateMetadata({
 
   if (!project) {
     return {
-      title: "Project — Atelier Forma"
+      title: "Project — MOR Architecture"
     };
   }
 
   return {
-    title: `${project.title} — Atelier Forma`,
+    title: `${project.title} — MOR Architecture`,
     description: project.excerpt
   };
 }

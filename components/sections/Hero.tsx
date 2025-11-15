@@ -56,10 +56,10 @@ const Hero = () => (
           </h1>
         </div>
         <p className="mx-auto max-w-xl text-text-muted md:text-lg lg:mx-0">
-          Atelier Forma is a multidisciplinary studio crafting serene habitats
-          and adaptive spaces across the globe. Our work translates landscapes
-          into homes, galleries, and retreats with uncompromising attention to
-          detail.
+          MOR Architecture is a multidisciplinary studio led by Tefik Morina in
+          Pristina, Kosovo, crafting serene habitats and adaptive spaces across
+          the region. Our work translates landscapes into homes, galleries, and
+          retreats with uncompromising attention to detail.
         </p>
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-start">
           <motion.a
@@ -109,7 +109,7 @@ const Hero = () => (
             Signature
           </span>
           <span className="text-sm uppercase tracking-[0.1em] text-text">
-            Harmon Harbour Residence — 2025, Portugal
+            Urban Courtyard Residence — 2025, Pristina
           </span>
         </motion.div>
       </motion.div>

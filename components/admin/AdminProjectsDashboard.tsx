@@ -1460,7 +1460,7 @@ const ProjectForm = ({
               value={draft.title}
               onChange={(event) => onTitleChange(event.target.value)}
               maxLength={120}
-              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <div className="mt-1 flex justify-between text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -1480,7 +1480,7 @@ const ProjectForm = ({
                 type="text"
                 value={draft.slug}
                 onChange={(event) => onSlugChange(event.target.value)}
-                className="flex-1 rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="flex-1 rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               <button
                 type="button"
@@ -1509,7 +1509,7 @@ const ProjectForm = ({
                   category: event.target.value
                 }))
               }
-              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <datalist id="category-options">
               {categorySuggestions.map((category) => (
@@ -1524,7 +1524,7 @@ const ProjectForm = ({
               Location
               <input
                 type="text"
-                placeholder="Lisbon, Portugal"
+                placeholder="Pristina, Kosovo"
                 value={draft.location}
                 onChange={(event) =>
                   onChange("essentials", (data) => ({
@@ -1532,7 +1532,7 @@ const ProjectForm = ({
                     location: event.target.value
                   }))
                 }
-                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               {renderFieldError("location")}
             </label>
@@ -1549,7 +1549,7 @@ const ProjectForm = ({
                     year: event.target.value
                   }))
                 }
-                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               {renderFieldError("year")}
             </label>
@@ -1592,7 +1592,7 @@ const ProjectForm = ({
                     heroCaption: event.target.value
                   }))
                 }
-                className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               <div className="mt-1 flex justify-end text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -1614,7 +1614,7 @@ const ProjectForm = ({
                   excerpt: event.target.value
                 }))
               }
-              className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <div className="mt-1 flex justify-between text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -2379,7 +2379,7 @@ const AdminNavBar = () => {
         <div className="flex flex-col gap-3 rounded-full border border-brand-secondary/70 bg-white/80 px-6 py-4 text-xs shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between md:text-sm">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold uppercase tracking-[0.24em]">
-            Studio Atlas
+            MOR Architecture
           </span>
           <span className="rounded-full bg-brand-accent/30 px-3 py-1 font-condensed text-[0.7rem] uppercase tracking-[0.32em] text-text">
             Admin

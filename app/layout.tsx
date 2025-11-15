@@ -18,9 +18,9 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier Forma — Architecture Studio",
+  title: "MOR Architecture — Architecture Studio",
   description:
-    "A minimalist architecture studio portfolio highlighting crafted spaces, projects, and contact information."
+    "A contemporary architecture studio portfolio showcasing crafted spaces, projects, and contact information."
 };
 
 type RootLayoutProps = {

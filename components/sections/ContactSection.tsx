@@ -26,7 +26,7 @@ const ContactSection = () => (
         </div>
         <p className="max-w-md text-base leading-relaxed text-text-muted md:text-lg">
           Share your vision, timelines, and references. We respond to new
-          enquiries within two business days.
+          enquiries within two business days from Pristina, Kosovo.
         </p>
       </motion.div>
 
@@ -93,15 +93,10 @@ const ContactSection = () => (
         >
           <div>
             <h3 className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
-              Studios
+              Studio
             </h3>
             <p className="mt-3 text-lg text-text">
-              Lisbon<br />
-              Rua do Prior 48
-            </p>
-            <p className="mt-6 text-lg text-text">
-              Montréal<br />
-              234 Rue Saint-Paul Ouest
+              Pristina, Kosovo
             </p>
           </div>
           <div>
@@ -109,29 +104,30 @@ const ContactSection = () => (
               Contact
             </h3>
             <p className="mt-3 text-lg text-text">
-              <a href="tel:+351210000567" className="hover:underline">
-                +351 210 000 567
+              <a href="tel:+38349860923" className="hover:underline">
+                +383 49 860 923
               </a>
               <br />
               <a
-                href="mailto:studio@atelierforma.com"
+                href="mailto:studio@morarchitecture.com"
                 className="hover:underline"
               >
-                studio@atelierforma.com
+                studio@morarchitecture.com
               </a>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 font-condensed text-[0.65rem] uppercase tracking-[0.24em] text-text-muted md:gap-4 md:text-xs">
-            <a href="#" className="transition hover:text-text">
+            <a
+              href="https://www.instagram.com/morstudio.ks?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+              className="transition hover:text-text"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Instagram
             </a>
             <span>—</span>
             <a href="#" className="transition hover:text-text">
               Behance
-            </a>
-            <span>—</span>
-            <a href="#" className="transition hover:text-text">
-              LinkedIn
             </a>
           </div>
         </motion.div>
