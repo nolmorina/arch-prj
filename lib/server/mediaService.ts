@@ -59,7 +59,7 @@ const buildStorageKey = (
   extension: string
 ) => {
   const slugSegment = projectSlug ? sanitizeSegment(projectSlug, 80) : "unassigned";
-  return `projects/${projectId}/${slugSegment}/${kind}/${randomUUID()}.${extension}`;
+  return `projects/${projectId}/${slugSegment}/${kind}/${randomUUID()}-${Date.now()}.${extension}`;
 };
 
 export const createUploadRequest = async ({
