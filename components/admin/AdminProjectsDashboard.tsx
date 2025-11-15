@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReactNode } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,34 +10,39 @@ import {
 } from "react";
 import Image, { StaticImageData } from "next/image";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import Container from "@/components/Container";
-import { projects } from "@/lib/projects";
-import type { Project } from "@/lib/projects";
-import heroFallback from "@/img/hero.jpg";
-
+import type { Project } from "@/lib/types/projects";
+import type {
+  AdminProjectFormPayload,
+  AdminProjectResponse
+} from "@/lib/types/admin";
 type ImageSource = StaticImageData | string;
 
 type AdminGalleryImage = {
   image: ImageSource;
   caption: string;
+  assetId?: string;
+  tempId?: string;
+  isPending?: boolean;
+  width?: number;
+  height?: number;
 };
+
+type AdminProjectStatus = "draft" | "published" | "archived";
 
 type AdminProjectRecord = Omit<Project, "heroImage" | "gallery"> & {
   heroImage: ImageSource;
   gallery: AdminGalleryImage[];
   id: string;
-  status: "draft" | "published";
+  status: AdminProjectStatus;
   lastEdited: string;
+  heroAssetId?: string;
 };
 
 type FormGroupId = "essentials" | "narrative" | "gallery";
-
-type AutosaveState = {
-  state: "idle" | "saving" | "saved";
-  timestamp: string | null;
-};
 
 type Toast = {
   id: string;
@@ -48,6 +54,22 @@ type ValidationResult = Record<string, string>;
 type SortOption = "recent" | "alpha";
 type PreviewMode = "card" | "hero";
 type ActionState = "idle" | "saving" | "publishing";
+
+type FormSectionProps = {
+  id: FormGroupId;
+  title: string;
+  open: boolean;
+  onToggle: (group: FormGroupId) => void;
+  children: ReactNode;
+};
+
+type PendingUploadEntry = {
+  file: File;
+  previewUrl: string;
+  kind: "gallery";
+  width?: number;
+  height?: number;
+};
 
 const META_PRESETS = ["Location", "Year", "Scope", "Size", "Status"];
 const MIN_DESCRIPTION_COUNT = 2;
@@ -82,11 +104,9 @@ const formatRelativeTime = (iso: string) => {
   return `Updated ${days}d ago`;
 };
 
-const formatSavedLabel = (date: Date) =>
-  date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
 const cloneProject = (project: AdminProjectRecord): AdminProjectRecord => ({
   ...project,
+  heroAssetId: project.heroAssetId,
   description: [...project.description],
   meta: project.meta.map((item) => ({ ...item })),
   services: [...project.services],
@@ -94,47 +114,75 @@ const cloneProject = (project: AdminProjectRecord): AdminProjectRecord => ({
   gallery: project.gallery.map((item) => ({ ...item }))
 });
 
-const sampleHeroImage = (index: number): ImageSource =>
-  projects.length
-    ? projects[index % projects.length].heroImage
-    : heroFallback;
+const adaptProjectFromApi = (
+  project: AdminProjectResponse
+): AdminProjectRecord => ({
+  ...project,
+  heroAssetId: project.heroAssetId,
+  heroImage: project.heroImage || "",
+  gallery: project.gallery.map((item) => ({
+    image: item.src,
+    caption: item.caption,
+    assetId: item.assetId,
+    width: item.width,
+    height: item.height
+  }))
+});
 
-const seedRecords = (): AdminProjectRecord[] =>
-  projects.map((project, index) => ({
-    ...project,
-    id: project.slug,
-    status: "published",
-    lastEdited: new Date(Date.now() - index * 86400000).toISOString()
-  }));
+const toApiPayload = (
+  record: AdminProjectRecord
+): AdminProjectFormPayload => ({
+  slug: record.slug,
+  title: record.title,
+  category: record.category,
+  location: record.location,
+  year: record.year,
+  heroImage: serializeImageSource(record.heroImage),
+  heroAssetId: record.heroAssetId,
+  heroCaption: record.heroCaption,
+  excerpt: record.excerpt,
+  description: record.description,
+  meta: record.meta.map((item) => ({
+    label: item.label,
+    value: item.value
+  })),
+  services: record.services,
+  collaborators: record.collaborators,
+  gallery: record.gallery.map((item) => ({
+    assetId: item.assetId,
+    src: serializeImageSource(item.image),
+    caption: item.caption,
+    width: item.width,
+    height: item.height
+  }))
+});
 
-const createBlankProject = (): AdminProjectRecord => {
-  const fallbackImage = sampleHeroImage(0);
-  return {
-    id: generateId(),
-    slug: `untitled-${Date.now().toString(36)}`,
-    title: "Untitled project",
-    category: "Unassigned",
-    location: "",
-    year: new Date().getFullYear().toString(),
-    heroImage: fallbackImage,
-    heroCaption: "Pending hero caption",
-    excerpt: "",
-    description: Array.from({ length: MIN_DESCRIPTION_COUNT }, () => ""),
-    meta: [
-      { label: "Location", value: "" },
-      { label: "Year", value: new Date().getFullYear().toString() },
-      { label: "Scope", value: "" }
-    ],
-    services: ["Architecture"],
-    collaborators: [],
-    gallery: Array.from({ length: DEFAULT_GALLERY_TEMPLATE_COUNT }, (_, index) => ({
-      image: sampleHeroImage(index),
-      caption: `Gallery caption ${String(index + 1).padStart(2, "0")}`
-    })),
-    status: "draft",
-    lastEdited: new Date().toISOString()
-  };
-};
+async function request<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {})
+    }
+  });
+
+  let payload: any = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? response.statusText);
+  }
+
+  return (payload?.data ?? payload) as T;
+}
 
 const serializeImageSource = (source: ImageSource) =>
   typeof source === "string" ? source : source.src ?? "";
@@ -147,12 +195,14 @@ const projectComparablePayload = (project: AdminProjectRecord) => ({
   year: project.year,
   heroCaption: project.heroCaption,
   heroImage: serializeImageSource(project.heroImage),
+  heroAssetId: project.heroAssetId,
   excerpt: project.excerpt,
   description: project.description,
   meta: project.meta,
   services: project.services,
   collaborators: project.collaborators,
   gallery: project.gallery.map((item) => ({
+    assetId: item.assetId,
     caption: item.caption,
     image: serializeImageSource(item.image)
   }))
@@ -257,74 +307,59 @@ const validateProject = (
   return errors;
 };
 
-const wait = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const initialSeed = seedRecords();
-
 const AdminProjectsDashboard = () => {
-  const initialRecords =
-    initialSeed.length > 0 ? initialSeed : [createBlankProject()];
-  const [records, setRecords] = useState<AdminProjectRecord[]>(initialRecords);
-  const [selectedId, setSelectedId] = useState(initialRecords[0].id);
-  const [draft, setDraft] = useState<AdminProjectRecord>(
-    cloneProject(initialRecords[0])
-  );
+  const [records, setRecords] = useState<AdminProjectRecord[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AdminProjectRecord | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [sortOrder, setSortOrder] = useState<SortOption>("recent");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("card");
   const [actionState, setActionState] = useState<ActionState>("idle");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<Record<FormGroupId, boolean>>({
     essentials: true,
     narrative: true,
     gallery: true
   });
   const [isHydrated, setIsHydrated] = useState(false);
-  const [autosaveState, setAutosaveState] = useState<
-    Record<FormGroupId, AutosaveState>
-  >({
-    essentials: { state: "saved", timestamp: null },
-    narrative: { state: "saved", timestamp: null },
-    gallery: { state: "saved", timestamp: null }
-  });
-  const autosaveTimers = useRef<
-    Record<FormGroupId, ReturnType<typeof setTimeout> | null>
-  >({
-    essentials: null,
-    narrative: null,
-    gallery: null
-  });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const draftRef = useRef<AdminProjectRecord | null>(null);
+  const pendingUploadsRef = useRef<Record<string, PendingUploadEntry>>({});
   const [deleteTarget, setDeleteTarget] = useState<AdminProjectRecord | null>(
     null
   );
 
   useEffect(() => {
     return () => {
-      Object.values(autosaveTimers.current).forEach((timer) => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-      });
       Object.values(toastTimers.current).forEach((timer) => {
         clearTimeout(timer);
       });
+      Object.values(pendingUploadsRef.current).forEach((entry) => {
+        URL.revokeObjectURL(entry.previewUrl);
+      });
+      pendingUploadsRef.current = {};
     };
   }, []);
 
   const currentRecord = useMemo(
-    () => records.find((record) => record.id === selectedId),
+    () => records.find((record) => record.id === selectedId) ?? null,
     [records, selectedId]
   );
 
   useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    Object.values(pendingUploadsRef.current).forEach((entry) => {
+      URL.revokeObjectURL(entry.previewUrl);
+    });
+    pendingUploadsRef.current = {};
+  }, [draft?.id]);
 
   useEffect(() => {
     if (!currentRecord) return;
@@ -332,31 +367,13 @@ const AdminProjectsDashboard = () => {
     setSlugManuallyEdited(false);
   }, [currentRecord]);
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    setAutosaveState((prev) => ({
-      essentials: {
-        ...prev.essentials,
-        timestamp: formatSavedLabel(new Date())
-      },
-      narrative: {
-        ...prev.narrative,
-        timestamp: formatSavedLabel(new Date())
-      },
-      gallery: {
-        ...prev.gallery,
-        timestamp: formatSavedLabel(new Date())
-      }
-    }));
-  }, [isHydrated]);
-
   const isDirty = useMemo(
-    () => !areProjectsEqual(currentRecord, draft),
+    () => (currentRecord && draft ? !areProjectsEqual(currentRecord, draft) : false),
     [currentRecord, draft]
   );
 
   const validationErrors = useMemo(
-    () => validateProject(draft, records),
+    () => (draft ? validateProject(draft, records) : {}),
     [draft, records]
   );
 
@@ -400,34 +417,23 @@ const AdminProjectsDashboard = () => {
     [records]
   );
 
-  const triggerAutosave = (group: FormGroupId) => {
-    setAutosaveState((prev) => ({
-      ...prev,
-      [group]: { state: "saving" }
-    }));
-    const existing = autosaveTimers.current[group];
-    if (existing) {
-      clearTimeout(existing);
-    }
-    autosaveTimers.current[group] = setTimeout(() => {
-      setAutosaveState((prev) => ({
-        ...prev,
-        [group]: { state: "saved", timestamp: formatSavedLabel(new Date()) }
-      }));
-      autosaveTimers.current[group] = null;
-    }, 2000);
-  };
-
   const handleGroupChange = (
     group: FormGroupId,
     updater: (data: AdminProjectRecord) => AdminProjectRecord
   ) => {
-    setDraft((prev) => cloneProject(updater(prev)));
-    triggerAutosave(group);
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return cloneProject(updater(prev));
+    });
   };
 
   const handleTitleChange = (value: string) => {
     setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
       const next: AdminProjectRecord = {
         ...prev,
         title: value,
@@ -435,19 +441,26 @@ const AdminProjectsDashboard = () => {
       };
       return cloneProject(next);
     });
-    triggerAutosave("essentials");
   };
 
   const handleSlugChange = (value: string) => {
     setSlugManuallyEdited(true);
-    setDraft((prev) => cloneProject({ ...prev, slug: value }));
-    triggerAutosave("essentials");
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return cloneProject({ ...prev, slug: value });
+    });
   };
 
   const handleRegenerateSlug = () => {
     setSlugManuallyEdited(false);
-    setDraft((prev) => cloneProject({ ...prev, slug: slugify(prev.title) }));
-    triggerAutosave("essentials");
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return cloneProject({ ...prev, slug: slugify(prev.title) });
+    });
   };
 
   const pushToast = (variant: Toast["variant"], message: string) => {
@@ -469,89 +482,171 @@ const AdminProjectsDashboard = () => {
     }
   };
 
-  const handleCreateProject = () => {
-    const blank = createBlankProject();
-    setRecords((prev) => [blank, ...prev]);
-    setSelectedId(blank.id);
-    setDraft(cloneProject(blank));
-    setSlugManuallyEdited(false);
-    pushToast("info", "Blank project ready to edit.");
+const loadProjects = useCallback(async () => {
+  try {
+    setIsLoading(true);
+    setLoadError(null);
+    const list = await request<AdminProjectResponse[]>("/api/admin/projects");
+    const formatted = list.map(adaptProjectFromApi);
+    setRecords(formatted);
+    const first = formatted[0] ?? null;
+    setSelectedId(first?.id ?? null);
+    setDraft(first ? cloneProject(first) : null);
+    setIsHydrated(true);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to load projects.";
+    setLoadError(message);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  void loadProjects();
+}, [loadProjects]);
+
+const syncRecordIntoState = useCallback(
+  (record: AdminProjectRecord, options?: { preserveSlugEditing?: boolean }) => {
+    setRecords((prev) => {
+      const filtered = prev.filter((item) => item.id !== record.id);
+      return [record, ...filtered];
+    });
+    setSelectedId(record.id);
+    setDraft(cloneProject(record));
+    if (!options?.preserveSlugEditing) {
+      setSlugManuallyEdited(false);
+    }
+  },
+  []
+);
+
+  const handleCreateProject = async () => {
+    try {
+      setActionState("saving");
+      const project = await request<AdminProjectResponse>("/api/admin/projects", {
+        method: "POST"
+      });
+      const formatted = adaptProjectFromApi(project);
+      syncRecordIntoState(formatted);
+      pushToast("info", "Blank project ready to edit.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to create project.";
+      pushToast("error", message);
+    } finally {
+      setActionState("idle");
+    }
   };
 
-  const handleDuplicateProject = (record: AdminProjectRecord) => {
-    const baseSlug = `${record.slug}-copy`;
-    let slugCandidate = baseSlug;
-    let attempt = 1;
-    while (records.some((item) => item.slug === slugCandidate)) {
-      slugCandidate = `${baseSlug}-${attempt++}`;
+  const handleDuplicateProject = async (record: AdminProjectRecord) => {
+    try {
+      const duplicated = await request<AdminProjectResponse>(
+        `/api/admin/projects/${record.id}/duplicate`,
+        { method: "POST" }
+      );
+      const formatted = adaptProjectFromApi(duplicated);
+      syncRecordIntoState(formatted, { preserveSlugEditing: true });
+      setSlugManuallyEdited(true);
+      pushToast("success", `Duplicated ${record.title}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to duplicate project.";
+      pushToast("error", message);
     }
-    const duplicate: AdminProjectRecord = cloneProject({
-      ...record,
-      id: generateId(),
-      title: `${record.title} (Copy)`,
-      slug: slugCandidate,
-      status: "draft",
-      lastEdited: new Date().toISOString()
-    });
-    setRecords((prev) => [duplicate, ...prev]);
-    setSelectedId(duplicate.id);
-    setDraft(cloneProject(duplicate));
-    setSlugManuallyEdited(true);
-    pushToast("success", `Duplicated ${record.title}`);
   };
 
   const handleDeleteProject = (record: AdminProjectRecord) => {
     setDeleteTarget(record);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
-    const filtered = records.filter((record) => record.id !== deleteTarget.id);
-    const nextList =
-      filtered.length > 0 ? filtered : [createBlankProject()];
-    setRecords(nextList);
-    setSelectedId(nextList[0].id);
-    setDraft(cloneProject(nextList[0]));
-    setSlugManuallyEdited(false);
-    pushToast("success", `Removed ${deleteTarget.title}`);
-    setDeleteTarget(null);
+    try {
+      setActionState("saving");
+      await request(`/api/admin/projects/${deleteTarget.id}`, {
+        method: "DELETE"
+      });
+      let filtered: AdminProjectRecord[] = [];
+      setRecords((prev) => {
+        filtered = prev.filter((record) => record.id !== deleteTarget.id);
+        return filtered;
+      });
+      if (filtered.length) {
+        const next = filtered[0];
+        setSelectedId(next.id);
+        setDraft(cloneProject(next));
+      } else {
+        const created = await request<AdminProjectResponse>("/api/admin/projects", {
+          method: "POST"
+        });
+        const formatted = adaptProjectFromApi(created);
+        setRecords([formatted]);
+        setSelectedId(formatted.id);
+        setDraft(cloneProject(formatted));
+      }
+      setSlugManuallyEdited(false);
+      pushToast("success", `Removed ${deleteTarget.title}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to delete project.";
+      pushToast("error", message);
+    } finally {
+      setDeleteTarget(null);
+      setActionState("idle");
+    }
   };
 
   const handleSaveDraft = async () => {
-    if (!currentRecord) return;
+    if (!draft) return;
     setActionState("saving");
-    await wait(900);
-    const updated: AdminProjectRecord = {
-      ...draft,
-      status: "draft",
-      lastEdited: new Date().toISOString()
-    };
-    setRecords((prev) =>
-      prev.map((record) => (record.id === updated.id ? cloneProject(updated) : record))
-    );
-    setDraft(cloneProject(updated));
-    setActionState("idle");
-    pushToast("success", "Draft saved");
+    try {
+      const preparedDraft = (await finalizePendingGallery()) ?? draft;
+      const payload = toApiPayload(preparedDraft);
+      const updated = await request<AdminProjectResponse>(
+        `/api/admin/projects/${preparedDraft.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ project: payload })
+        }
+      );
+      syncRecordIntoState(adaptProjectFromApi(updated));
+      pushToast("success", "Draft saved");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to save draft.";
+      pushToast("error", message);
+    } finally {
+      setActionState("idle");
+    }
   };
 
   const handlePublish = async () => {
+    if (!draft) return;
     if (Object.keys(validationErrors).length > 0) {
       pushToast("error", "Resolve validation issues before publishing");
       return;
     }
     setActionState("publishing");
-    await wait(1200);
-    const updated: AdminProjectRecord = {
-      ...draft,
-      status: "published",
-      lastEdited: new Date().toISOString()
-    };
-    setRecords((prev) =>
-      prev.map((record) => (record.id === updated.id ? cloneProject(updated) : record))
-    );
-    setDraft(cloneProject(updated));
-    setActionState("idle");
-    pushToast("success", `${updated.title} published`);
+    try {
+      const preparedDraft = (await finalizePendingGallery()) ?? draft;
+      const payload = toApiPayload(preparedDraft);
+      const updated = await request<AdminProjectResponse>(
+        `/api/admin/projects/${preparedDraft.id}/publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({ project: payload })
+        }
+      );
+      syncRecordIntoState(adaptProjectFromApi(updated));
+      pushToast("success", `${draft.title} published`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to publish project.";
+      pushToast("error", message);
+    } finally {
+      setActionState("idle");
+    }
   };
 
   const toggleGroup = (group: FormGroupId) => {
@@ -566,9 +661,149 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
     handleGroupChange("essentials", (data) => ({
       ...data,
       heroImage: entry.image,
-      heroCaption: entry.caption
+      heroCaption: entry.caption,
+      heroAssetId: entry.assetId ?? data.heroAssetId
     }));
   };
+
+  const uploadPendingFile = useCallback(
+    async (
+      file: File,
+      kind: "hero" | "gallery",
+      sizing: { width?: number; height?: number }
+    ) => {
+      if (!draft) {
+        throw new Error("No draft available for upload.");
+      }
+      const { width, height } =
+        sizing.width && sizing.height
+          ? { width: sizing.width, height: sizing.height }
+          : await readImageDimensions(file);
+      const uploadDetails = await request<{
+        key: string;
+        uploadUrl: string;
+        publicUrl: string;
+      }>("/api/admin/media/upload-url", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: draft.id,
+          fileName: file.name,
+          contentType: file.type,
+          kind
+        })
+      });
+
+      await fetch(uploadDetails.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type
+        },
+        body: file
+      });
+
+      return request<{
+        assetId: string;
+        publicUrl: string;
+        storageKey: string;
+        width: number;
+        height: number;
+      }>("/api/admin/media/commit", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: draft.id,
+          key: uploadDetails.key,
+          publicUrl: uploadDetails.publicUrl,
+          kind,
+            width,
+            height,
+          fileSize: file.size,
+          contentType: file.type
+        })
+      });
+    },
+    [draft]
+  );
+
+  const finalizePendingGallery = useCallback(async () => {
+    if (!draft) {
+      return null;
+    }
+
+    const pendingEntries = draft.gallery.filter(
+      (item) => item.tempId && pendingUploadsRef.current[item.tempId]
+    );
+
+    if (!pendingEntries.length) {
+      return draft;
+    }
+
+    let updated = cloneProject(draft);
+
+    for (let index = 0; index < updated.gallery.length; index++) {
+      const entry = updated.gallery[index];
+      if (!entry.tempId) continue;
+      const pending = pendingUploadsRef.current[entry.tempId];
+      if (!pending) continue;
+      const previousImage =
+        typeof entry.image === "string" ? entry.image : undefined;
+
+      const asset = await uploadPendingFile(pending.file, "gallery", {
+        width: pending.width,
+        height: pending.height
+      });
+
+      updated.gallery[index] = {
+        ...entry,
+        image: asset.publicUrl,
+        assetId: asset.assetId,
+        isPending: false,
+        tempId: undefined,
+        width: asset.width,
+        height: asset.height
+      };
+
+      URL.revokeObjectURL(pending.previewUrl);
+      delete pendingUploadsRef.current[entry.tempId];
+
+      if (previousImage && updated.heroImage === previousImage) {
+        updated.heroImage = asset.publicUrl;
+        updated.heroAssetId = asset.assetId;
+      }
+    }
+
+    setDraft(cloneProject(updated));
+    return updated;
+  }, [draft, uploadPendingFile]);
+
+if (isLoading || !draft) {
+  return (
+    <div className="relative min-h-screen bg-background text-text">
+      <AdminNavBar />
+      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        {loadError ? (
+          <>
+            <p className="text-text-muted">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                void loadProjects();
+              }}
+              className="rounded-full border border-brand-secondary px-6 py-2 font-condensed text-xs uppercase tracking-[0.28em]"
+            >
+              Retry
+            </button>
+          </>
+        ) : (
+          <p className="text-text-muted">Loading projects…</p>
+        )}
+      </main>
+    </div>
+  );
+}
+
+if (!draft) {
+  return null;
+}
 
   return (
     <div className="relative min-h-screen bg-background text-text">
@@ -576,7 +811,12 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
       <main className="pt-32 pb-24">
         <section className="relative overflow-hidden pb-16">
           <Container>
-            <IntroHeader onCreateProject={handleCreateProject} projectCount={records.length} />
+            <IntroHeader
+              onCreateProject={() => {
+                void handleCreateProject();
+              }}
+              projectCount={records.length}
+            />
           </Container>
           <span className="pointer-events-none absolute inset-x-0 top-12 -z-10 text-center font-condensed text-[28vw] uppercase tracking-[0.3em] text-brand-secondary/30">
             ADMIN
@@ -589,7 +829,7 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
               <ProjectListPanel
                 projects={filteredProjects}
                 categories={categories}
-                selectedId={selectedId}
+                selectedId={selectedId ?? ""}
                 onSelect={setSelectedId}
                 searchQuery={searchQuery}
                 onSearch={setSearchQuery}
@@ -597,8 +837,12 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
                 onChangeCategory={setCategoryFilter}
                 sortOrder={sortOrder}
                 onSort={setSortOrder}
-                onCreateProject={handleCreateProject}
-                onDuplicate={handleDuplicateProject}
+                onCreateProject={() => {
+                  void handleCreateProject();
+                }}
+                onDuplicate={(record) => {
+                  void handleDuplicateProject(record);
+                }}
                 onDelete={handleDeleteProject}
                 isHydrated={isHydrated}
               />
@@ -607,7 +851,6 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
                 <div className="relative">
                   <ProjectForm
                     draft={draft}
-                    autosaveState={autosaveState}
                     openGroups={openGroups}
                     onToggleGroup={toggleGroup}
                     onTitleChange={handleTitleChange}
@@ -618,6 +861,8 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
                     categorySuggestions={categorySuggestions}
                     onRequestMediaLibrary={handleMediaLibrary}
                     onSetHeroFromGallery={handleSetHeroFromGallery}
+                    onPushToast={pushToast}
+                    pendingUploads={pendingUploadsRef}
                   />
 
                   <ActionBar
@@ -625,9 +870,17 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
                     isDirty={isDirty}
                     canPublish={Object.keys(validationErrors).length === 0}
                     currentStatus={draft.status}
-                    onSaveDraft={handleSaveDraft}
-                    onPublish={handlePublish}
-                    onDelete={() => handleDeleteProject(draft)}
+                    onSaveDraft={() => {
+                      void handleSaveDraft();
+                    }}
+                    onPublish={() => {
+                      void handlePublish();
+                    }}
+                    onDelete={() => {
+                      if (draft) {
+                        handleDeleteProject(draft);
+                      }
+                    }}
                   />
                 </div>
 
@@ -667,8 +920,19 @@ const AdminImage = ({
   alt,
   sizes,
   className = ""
-}: AdminImageProps) =>
-  typeof source === "string" ? (
+}: AdminImageProps) => {
+  if (!source || (typeof source === "string" && !source.trim())) {
+    return (
+      <div
+        className={`absolute inset-0 flex h-full w-full items-center justify-center bg-background text-xs uppercase tracking-[0.28em] text-text-muted ${className}`.trim()}
+        aria-label="Pending image"
+      >
+        Image pending
+      </div>
+    );
+  }
+
+  return typeof source === "string" ? (
     <img
       src={source}
       alt={alt}
@@ -683,6 +947,7 @@ const AdminImage = ({
       className={`object-cover ${className}`.trim()}
     />
   );
+};
 
 type IntroHeaderProps = {
   onCreateProject: () => void;
@@ -703,8 +968,8 @@ const IntroHeader = ({ onCreateProject, projectCount }: IntroHeaderProps) => (
           Curate the portfolio
         </h1>
         <p className="text-lg text-text-muted">
-          Autosave tracks each form group independently. Publishing pushes the
-          selected project to the live grid and detail route.
+          Drafts update only when you save. Publishing pushes the selected
+          project to the live grid and detail route.
         </p>
       </div>
       <button
@@ -928,7 +1193,6 @@ const ProjectListPanel = ({
 
 type ProjectFormProps = {
   draft: AdminProjectRecord;
-  autosaveState: Record<FormGroupId, AutosaveState>;
   openGroups: Record<FormGroupId, boolean>;
   onToggleGroup: (group: FormGroupId) => void;
   onTitleChange: (value: string) => void;
@@ -942,11 +1206,42 @@ type ProjectFormProps = {
   categorySuggestions: string[];
   onRequestMediaLibrary: () => void;
   onSetHeroFromGallery: (entry: AdminGalleryImage) => void;
+  onPushToast: (variant: Toast["variant"], message: string) => void;
+  pendingUploads: MutableRefObject<Record<string, PendingUploadEntry>>;
+};
+
+const ACCEPTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif"
+]);
+
+const readImageDimensions = (file: File) =>
+  new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = document.createElement("img");
+    image.onload = () => {
+      const { width, height } = image;
+      URL.revokeObjectURL(image.src);
+      resolve({ width, height });
+    };
+    image.onerror = (error) => {
+      URL.revokeObjectURL(image.src);
+      reject(error);
+    };
+    image.src = URL.createObjectURL(file);
+  });
+
+const deriveCaptionFromFile = (fileName: string, fallbackIndex: number) => {
+  const base = fileName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
+  if (base) {
+    return base;
+  }
+  return `Uploaded image ${fallbackIndex}`;
 };
 
 const ProjectForm = ({
   draft,
-  autosaveState,
   openGroups,
   onToggleGroup,
   onTitleChange,
@@ -956,8 +1251,11 @@ const ProjectForm = ({
   validationErrors,
   categorySuggestions,
   onRequestMediaLibrary,
-  onSetHeroFromGallery
+  onSetHeroFromGallery,
+  onPushToast,
+  pendingUploads
 }: ProjectFormProps) => {
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [metaPreset, setMetaPreset] = useState(META_PRESETS[0]);
   const [serviceInput, setServiceInput] = useState("");
   const [collaboratorInput, setCollaboratorInput] = useState("");
@@ -1018,27 +1316,99 @@ const ProjectForm = ({
     setCollaboratorInput("");
   };
 
-  const handleGalleryUpload = (fileList: FileList | null) => {
-    if (!fileList || draft.gallery.length >= MAX_GALLERY_COUNT) return;
-    const files = Array.from(fileList);
-    const allowed = Math.min(
-      files.length,
-      MAX_GALLERY_UPLOAD,
-      MAX_GALLERY_COUNT - draft.gallery.length
-    );
-    if (allowed <= 0) return;
-    onChange("gallery", (data) => {
-      const remaining = MAX_GALLERY_COUNT - data.gallery.length;
-      const batchSize = Math.min(allowed, remaining);
-      if (batchSize <= 0) return data;
-      const additions = files.slice(0, batchSize).map((file, index) => ({
-        image: URL.createObjectURL(file),
-        caption:
-          file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") ||
-          `Uploaded image ${data.gallery.length + index + 1}`
-      }));
-      return { ...data, gallery: [...data.gallery, ...additions] };
-    });
+  const releasePendingPreview = (entry: AdminGalleryImage) => {
+    if (entry.tempId && pendingUploads.current[entry.tempId]) {
+      URL.revokeObjectURL(pendingUploads.current[entry.tempId].previewUrl);
+      delete pendingUploads.current[entry.tempId];
+    } else if (
+      typeof entry.image === "string" &&
+      entry.image.startsWith("blob:")
+    ) {
+      URL.revokeObjectURL(entry.image);
+    }
+  };
+
+  const handleGalleryUpload = async (fileList: FileList | null) => {
+    if (!fileList || isUploadingMedia) return;
+    let remainingSlots = MAX_GALLERY_COUNT - draft.gallery.length;
+    if (remainingSlots <= 0) {
+      onPushToast("error", "Gallery is full.");
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    const files = Array.from(fileList).slice(0, MAX_GALLERY_UPLOAD);
+
+    let queued = 0;
+    for (const file of files) {
+      if (remainingSlots <= 0) {
+        onPushToast("info", "Some files were skipped because the gallery is full.");
+        break;
+      }
+
+      if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+        onPushToast("error", `${file.name} is not a supported image type.`);
+        return;
+      }
+
+      const tempId = generateId();
+      const previewUrl = URL.createObjectURL(file);
+      let metadata: { width?: number; height?: number } = {};
+      if (typeof window !== "undefined" && "createImageBitmap" in window) {
+        try {
+          const bitmap = await createImageBitmap(file);
+          metadata = { width: bitmap.width, height: bitmap.height };
+          bitmap.close();
+        } catch {
+          // fallback to later calculation
+        }
+      }
+
+      pendingUploads.current[tempId] = {
+        file,
+        previewUrl,
+        kind: "gallery",
+        width: metadata.width,
+        height: metadata.height
+      };
+
+      let added = false;
+      onChange("gallery", (data) => {
+        if (data.gallery.length >= MAX_GALLERY_COUNT) {
+          URL.revokeObjectURL(previewUrl);
+          delete pendingUploads.current[tempId];
+          return data;
+        }
+        return {
+          ...data,
+          gallery: [
+            ...data.gallery,
+            {
+              image: previewUrl,
+              caption: deriveCaptionFromFile(file.name, data.gallery.length + 1),
+              assetId: undefined,
+              tempId,
+              isPending: true,
+              width: metadata.width,
+              height: metadata.height
+            }
+          ]
+        };
+      });
+      if (pendingUploads.current[tempId]) {
+        added = true;
+      }
+      if (added) {
+        queued += 1;
+        remainingSlots -= 1;
+      }
+    }
+
+    if (queued > 0) {
+      onPushToast("info", "Images queued. Save changes to upload.");
+    }
+
+    setIsUploadingMedia(false);
   };
 
   const triggerGalleryUpload = () => {
@@ -1049,6 +1419,10 @@ const ProjectForm = ({
 
   const removeGalleryItem = (index: number) => {
     if (draft.gallery.length <= MIN_GALLERY_DELETE_THRESHOLD) return;
+    const entry = draft.gallery[index];
+    if (entry) {
+      releasePendingPreview(entry);
+    }
     onChange("gallery", (data) => ({
       ...data,
       gallery: data.gallery.filter((_, idx) => idx !== index)
@@ -1065,57 +1439,6 @@ const ProjectForm = ({
     });
   };
 
-  const FormSection = ({
-    id,
-    title,
-    children
-  }: {
-    id: FormGroupId;
-    title: string;
-    children: ReactNode;
-  }) => {
-    const autosave = autosaveState[id];
-    return (
-      <div className="rounded-[32px] border border-brand-secondary/70 bg-white px-6 py-7 md:px-8 md:py-10">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
-              {title}
-            </p>
-            <p className="text-[0.75rem] text-text-muted">
-              {autosave.state === "saving"
-                ? "Saving…"
-                : autosave.timestamp
-                ? `Saved • ${autosave.timestamp}`
-                : "Autosave idle"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onToggleGroup(id)}
-            className="rounded-full border border-brand-secondary px-3 py-1 text-xs uppercase tracking-[0.28em] text-text-muted"
-          >
-            {openGroups[id] ? "Collapse" : "Expand"}
-          </button>
-        </div>
-
-        <AnimatePresence initial={false}>
-          {openGroups[id] ? (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-8 space-y-6"
-            >
-              {children}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </div>
-    );
-  };
-
   const renderFieldError = (key: string) =>
     validationErrors[key] ? (
       <p className="text-sm text-red-600">{validationErrors[key]}</p>
@@ -1123,7 +1446,12 @@ const ProjectForm = ({
 
   return (
     <form className="space-y-8" onSubmit={(event) => event.preventDefault()}>
-      <FormSection id="essentials" title="Essentials">
+      <FormSection
+        id="essentials"
+        title="Essentials"
+        open={openGroups.essentials}
+        onToggle={onToggleGroup}
+      >
         <div className="space-y-4">
           <label className="block text-sm font-semibold uppercase tracking-[0.24em]">
             Title
@@ -1132,7 +1460,7 @@ const ProjectForm = ({
               value={draft.title}
               onChange={(event) => onTitleChange(event.target.value)}
               maxLength={120}
-              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <div className="mt-1 flex justify-between text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -1152,7 +1480,7 @@ const ProjectForm = ({
                 type="text"
                 value={draft.slug}
                 onChange={(event) => onSlugChange(event.target.value)}
-                className="flex-1 rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="flex-1 rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               <button
                 type="button"
@@ -1181,7 +1509,7 @@ const ProjectForm = ({
                   category: event.target.value
                 }))
               }
-              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <datalist id="category-options">
               {categorySuggestions.map((category) => (
@@ -1196,7 +1524,7 @@ const ProjectForm = ({
               Location
               <input
                 type="text"
-                placeholder="Lisbon, Portugal"
+                placeholder="Pristina, Kosovo"
                 value={draft.location}
                 onChange={(event) =>
                   onChange("essentials", (data) => ({
@@ -1204,7 +1532,7 @@ const ProjectForm = ({
                     location: event.target.value
                   }))
                 }
-                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               {renderFieldError("location")}
             </label>
@@ -1221,7 +1549,7 @@ const ProjectForm = ({
                     year: event.target.value
                   }))
                 }
-                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               {renderFieldError("year")}
             </label>
@@ -1264,7 +1592,7 @@ const ProjectForm = ({
                     heroCaption: event.target.value
                   }))
                 }
-                className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+                className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
               />
               <div className="mt-1 flex justify-end text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -1286,7 +1614,7 @@ const ProjectForm = ({
                   excerpt: event.target.value
                 }))
               }
-              className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-base font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
+              className="mt-2 h-32 w-full resize-none rounded-none border border-brand-secondary/70 px-4 py-3 text-sm font-normal placeholder:font-normal placeholder:text-text-muted/60 focus:border-text focus:outline-none"
             />
             <div className="mt-1 flex justify-between text-xs text-text-muted">
               <span className="font-normal normal-case tracking-normal">
@@ -1301,7 +1629,12 @@ const ProjectForm = ({
         </div>
       </FormSection>
 
-      <FormSection id="narrative" title="Narrative & Info">
+      <FormSection
+        id="narrative"
+        title="Narrative & Info"
+        open={openGroups.narrative}
+        onToggle={onToggleGroup}
+      >
         <div className="space-y-6">
           <div>
             <div className="flex items-center justify-between">
@@ -1374,7 +1707,7 @@ const ProjectForm = ({
             <div className="mt-4 space-y-3">
               {draft.meta.map((item, index) => (
                 <div
-                  key={`${item.label}-${index}`}
+                  key={`meta-${index}`}
                   className="grid gap-3 rounded-2xl border border-brand-secondary/60 px-4 py-3 sm:grid-cols-[0.9fr_1fr_auto]"
                 >
                   <input
@@ -1519,7 +1852,12 @@ const ProjectForm = ({
         </div>
       </FormSection>
 
-      <FormSection id="gallery" title="Gallery">
+      <FormSection
+        id="gallery"
+        title="Gallery"
+        open={openGroups.gallery}
+        onToggle={onToggleGroup}
+      >
         <div className="space-y-6">
           {draft.gallery.map((item, index) => (
             <div
@@ -1540,6 +1878,11 @@ const ProjectForm = ({
               <div className="space-y-4">
                 <label className="block text-sm font-semibold uppercase tracking-[0.24em]">
                   Caption
+                  {item.isPending ? (
+                    <span className="ml-2 text-xs font-normal tracking-[0.28em] text-brand-secondary">
+                      Uploads on save
+                    </span>
+                  ) : null}
                   <textarea
                     value={item.caption}
                     onChange={(event) =>
@@ -1599,6 +1942,9 @@ const ProjectForm = ({
                 Upload up to {MAX_GALLERY_UPLOAD} per batch •{" "}
                 {remainingGallerySlots} slots remaining
               </p>
+              <p className="text-xs text-text-muted/70">
+                Files upload to Cloudflare when you save changes.
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <input
@@ -1608,17 +1954,17 @@ const ProjectForm = ({
                 multiple
                 className="sr-only"
                 onChange={(event) => {
-                  handleGalleryUpload(event.target.files);
+                  void handleGalleryUpload(event.target.files);
                   event.target.value = "";
                 }}
               />
               <button
                 type="button"
                 onClick={triggerGalleryUpload}
-                disabled={remainingGallerySlots === 0}
+                disabled={remainingGallerySlots === 0 || isUploadingMedia}
                 className="rounded-full border border-text px-5 py-2 font-condensed text-xs uppercase tracking-[0.32em] disabled:opacity-30"
               >
-                Upload images
+                {isUploadingMedia ? "Processing…" : "Upload images"}
               </button>
             </div>
           </div>
@@ -1628,6 +1974,46 @@ const ProjectForm = ({
     </form>
   );
 };
+
+const FormSection = ({
+  id,
+  title,
+  open,
+  onToggle,
+  children
+}: FormSectionProps) => (
+  <div className="rounded-[32px] border border-brand-secondary/70 bg-white px-6 py-7 md:px-8 md:py-10">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
+          {title}
+        </p>
+        <p className="text-[0.75rem] text-text-muted">Manual save required</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        className="rounded-full border border-brand-secondary px-3 py-1 text-xs uppercase tracking-[0.28em] text-text-muted"
+      >
+        {open ? "Collapse" : "Expand"}
+      </button>
+    </div>
+
+    <AnimatePresence initial={false}>
+      {open ? (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-8 space-y-6"
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  </div>
+);
 
 type PreviewStripProps = {
   project: AdminProjectRecord;
@@ -1787,7 +2173,7 @@ type ActionBarProps = {
   status: ActionState;
   isDirty: boolean;
   canPublish: boolean;
-  currentStatus: "draft" | "published";
+  currentStatus: AdminProjectStatus;
   onSaveDraft: () => void;
   onPublish: () => void;
   onDelete: () => void;
@@ -1976,25 +2362,46 @@ const DeleteConfirmModal = ({
   );
 };
 
-const AdminNavBar = () => (
+const AdminNavBar = () => {
+  const { data: session, status } = useSession();
+  const userName = session?.user?.name;
+  const userEmail = session?.user?.email;
+  const displayName = userName || userEmail || "Authorized admin";
+  const isLoading = status === "loading";
+
+  const handleSignOut = () => {
+    void signOut({ callbackUrl: "/admin/sign-in" });
+  };
+
+  return (
   <div className="fixed inset-x-0 top-4 z-40">
     <Container>
-      <div className="flex items-center justify-between rounded-full border border-brand-secondary/70 bg-white/80 px-6 py-3 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 rounded-full border border-brand-secondary/70 bg-white/80 px-6 py-4 text-xs shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between md:text-sm">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold uppercase tracking-[0.24em]">
-            Studio Atlas
+            MOR Architecture
           </span>
           <span className="rounded-full bg-brand-accent/30 px-3 py-1 font-condensed text-[0.7rem] uppercase tracking-[0.32em] text-text">
             Admin
           </span>
         </div>
-        <div className="hidden items-center gap-6 md:flex">
-          <span className="text-xs uppercase tracking-[0.32em] text-text-muted">
-            Dashboard / Projects
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-3 text-[0.65rem] uppercase tracking-[0.28em] text-text-muted md:text-right">
+            <div className="text-right">
+              <p>{isLoading ? "Verifying access…" : "Signed in as"}</p>
+              {!isLoading ? (
+                <p className="text-text">{displayName}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-full border border-brand-secondary px-4 py-1 font-condensed text-[0.65rem] uppercase tracking-[0.28em] text-text transition hover:border-text"
+            >
+              Sign out
+            </button>
           <Link
             href="/"
-            className="rounded-full border border-brand-secondary px-5 py-2 font-condensed text-xs uppercase tracking-[0.32em] text-text transition hover:border-text"
+              className="rounded-full border border-brand-secondary px-4 py-1 font-condensed text-[0.65rem] uppercase tracking-[0.28em] text-text transition hover:border-text"
           >
             Back to site
           </Link>
@@ -2003,5 +2410,5 @@ const AdminNavBar = () => (
     </Container>
   </div>
 );
-
+};
 

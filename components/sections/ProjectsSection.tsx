@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
 import Container from "@/components/Container";
-import type { Project } from "@/lib/projects";
+import type { Project } from "@/lib/types/projects";
 import ProjectCard from "../ProjectCard";
 
 type ProjectsSectionProps = {
@@ -46,7 +46,7 @@ const ProjectsSection = ({ projects }: ProjectsSectionProps) => {
           </h2>
           <p className="max-w-2xl text-text-muted md:text-lg">
             Each commission is approached as a dialogue between environment and
-            geometry—crafted to reveal texture, proportion, and calm.
+            geometry, crafted to reveal texture, proportion, and calm.
           </p>
         </motion.div>
 

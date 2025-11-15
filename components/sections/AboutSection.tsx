@@ -35,16 +35,16 @@ const AboutSection = () => (
         className="w-full rounded-none border border-brand-secondary bg-white px-8 py-12 text-left md:px-12 md:py-16"
       >
         <p className="text-lg text-text-muted">
-          Atelier Forma is led by principal architect Lea Fournier with studios
-          in Lisbon and Montréal. From coastal retreats to cultural institutions,
-          we deliver architecture that is precise yet warm—anchoring each
-          project in its landscape while embracing adaptive, sustainable
+          MOR Architecture is led by principal architect Tefik Morina and is
+          rooted in Pristina, Kosovo. From alpine retreats to cultural
+          institutions, we deliver architecture that is precise yet warm, anchoring
+          each project in its landscape while embracing adaptive, sustainable
           systems.
         </p>
         <p className="mt-8 text-lg text-text-muted">
           Our team collaborates across disciplines to explore tactile
           materials, filtered daylight, and controlled acoustics. The result is
-          a quiet intensity—spaces that invite instinctive movement and
+          a quiet intensity, spaces that invite instinctive movement and
           considered living.
         </p>
       </motion.div>

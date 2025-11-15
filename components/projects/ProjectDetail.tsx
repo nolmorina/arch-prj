@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
-import type { Project, ProjectGalleryImage } from "@/lib/projects";
+import type { Project, ProjectGalleryImage } from "@/lib/types/projects";
 
 type ProjectDetailProps = {
   project: Project;
@@ -186,8 +186,8 @@ const ProjectSidebar = ({ project }: ProjectSidebarProps) => (
           Narrative
         </h3>
         <div className="space-y-4 text-sm text-text-muted">
-          {project.description.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
+          {project.description.map((paragraph, index) => (
+            <p key={`${project.slug}-description-${index}`}>{paragraph}</p>
           ))}
         </div>
       </div>

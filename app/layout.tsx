@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Archivo } from "next/font/google";
 import "./globals.css";
 
+import SessionProvider from "@/components/providers/SessionProvider";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -16,9 +18,9 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier Forma — Architecture Studio",
+  title: "MOR Architecture — Architecture Studio",
   description:
-    "A minimalist architecture studio portfolio highlighting crafted spaces, projects, and contact information."
+    "A contemporary architecture studio portfolio showcasing crafted spaces, projects, and contact information."
 };
 
 type RootLayoutProps = {
@@ -28,7 +30,7 @@ type RootLayoutProps = {
 const RootLayout = ({ children }: RootLayoutProps) => (
   <html lang="en" className={`${inter.variable} ${archivo.variable}`}>
     <body className="font-sans text-text bg-background antialiased">
-      {children}
+      <SessionProvider>{children}</SessionProvider>
     </body>
   </html>
 );

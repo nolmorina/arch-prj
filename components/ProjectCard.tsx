@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
-import type { Project } from "@/lib/projects";
+import type { Project } from "@/lib/types/projects";
 
 type ProjectCardProps = {
   project: Project;
