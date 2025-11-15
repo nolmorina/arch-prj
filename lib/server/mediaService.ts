@@ -44,19 +44,33 @@ const getExtension = (contentType: string, fileName?: string) => {
   return "bin";
 };
 
+const sanitizeSegment = (value: string, maxLength = 60) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, maxLength);
+
 const buildStorageKey = (
   projectId: string,
+  projectSlug: string | undefined,
   kind: MediaKind,
   extension: string
-) => `projects/${projectId}/${kind}/${randomUUID()}.${extension}`;
+) => {
+  const slugSegment = projectSlug ? sanitizeSegment(projectSlug, 80) : "unassigned";
+  return `projects/${projectId}/${slugSegment}/${kind}/${randomUUID()}.${extension}`;
+};
 
 export const createUploadRequest = async ({
   projectId,
+  projectSlug,
   contentType,
   fileName,
   kind
 }: {
   projectId: string;
+  projectSlug?: string;
   contentType: string;
   fileName?: string;
   kind: MediaKind;
@@ -68,7 +82,12 @@ export const createUploadRequest = async ({
     throw new Error("Unsupported content type");
   }
 
-  const key = buildStorageKey(projectId, kind, getExtension(contentType, fileName));
+  const key = buildStorageKey(
+    projectId,
+    projectSlug,
+    kind,
+    getExtension(contentType, fileName)
+  );
   const uploadUrl = await createPresignedUploadUrl(key, contentType);
   const publicUrl = getPublicUrlForKey(key);
   return {

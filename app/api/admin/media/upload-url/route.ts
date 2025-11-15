@@ -5,6 +5,7 @@ import { getAdminSession } from "@/lib/auth/session";
 
 type UploadUrlBody = {
   projectId?: string;
+  projectSlug?: string;
   contentType?: string;
   fileName?: string;
   kind?: MediaKind;
@@ -17,7 +18,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const body = (await request.json()) as UploadUrlBody;
-    const { projectId, contentType, fileName, kind = "gallery" } = body ?? {};
+    const { projectId, projectSlug, contentType, fileName, kind = "gallery" } =
+      body ?? {};
     if (!projectId || !contentType) {
       return NextResponse.json(
         { error: "projectId and contentType are required" },
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
 
     const data = await createUploadRequest({
       projectId,
+      projectSlug,
       contentType,
       fileName,
       kind

@@ -25,7 +25,7 @@ export async function generateMetadata({
 
   if (!project) {
     return {
-      title: "Project — MOR Architecture"
+    title: "Project — MOR Architecture"
     };
   }
 

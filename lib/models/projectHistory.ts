@@ -15,7 +15,7 @@ const projectHistorySchema = new Schema(
     },
     action: {
       type: String,
-      enum: ["created", "duplicated", "saved", "published", "deleted"],
+      enum: ["created", "duplicated", "saved", "published", "unpublished", "deleted"],
       required: true
     },
     fromStatus: { type: String, enum: ["draft", "published", "archived"] },
@@ -38,8 +38,14 @@ projectHistorySchema.index(
 type ProjectHistory = InferSchemaType<typeof projectHistorySchema>;
 export type ProjectHistoryDocument = HydratedDocument<ProjectHistory>;
 
-export const ProjectHistoryModel =
-  models.ProjectHistory ??
-  model<ProjectHistory>("ProjectHistory", projectHistorySchema, "projectHistory");
+if (models.ProjectHistory) {
+  delete models.ProjectHistory;
+}
+
+export const ProjectHistoryModel = model<ProjectHistory>(
+  "ProjectHistory",
+  projectHistorySchema,
+  "projectHistory"
+);
 
 

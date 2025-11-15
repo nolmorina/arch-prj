@@ -22,7 +22,7 @@ const projectVersionSchema = new Schema(
     },
     source: {
       type: String,
-      enum: ["manual-save", "publish"],
+      enum: ["manual-save", "publish", "unpublish"],
       required: true
     },
     payload: { type: Schema.Types.Mixed, required: true },

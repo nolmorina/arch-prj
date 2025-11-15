@@ -29,7 +29,7 @@ const heroSchema = new Schema(
 
 const descriptionBlockSchema = new Schema(
   {
-    body: { type: String, required: true, minlength: 80 },
+    body: { type: String, required: true, trim: true },
     order: { type: Number, required: true }
   },
   { _id: true }
@@ -114,20 +114,16 @@ const projectSchema = new Schema(
     hero: { type: heroSchema, required: true },
     excerpt: { type: String, required: true, maxlength: 360 },
     descriptionBlocks: {
-      type: [descriptionBlockSchema],
-      validate: [(value: unknown[]) => value.length >= 2, "min 2 blocks"]
+      type: [descriptionBlockSchema]
     },
     meta: {
-      type: [metaItemSchema],
-      validate: [(value: unknown[]) => value.length >= 3, "min 3 meta"]
+      type: [metaItemSchema]
     },
     services: {
-      type: [serviceItemSchema],
-      validate: [(value: unknown[]) => value.length >= 1, "min 1 service"]
+      type: [serviceItemSchema]
     },
     collaborators: {
-      type: [collaboratorItemSchema],
-      validate: [(value: unknown[]) => value.length >= 1, "min 1 collaborator"]
+      type: [collaboratorItemSchema]
     },
     gallery: {
       type: [galleryItemSchema],
