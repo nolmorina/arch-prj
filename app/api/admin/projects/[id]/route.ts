@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 import {
   deleteAdminProject,
@@ -91,6 +92,15 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       return unauthorized;
     }
     const project = await deleteAdminProject(params.id);
+    
+    // Revalidate public pages that display projects
+    revalidatePath('/');
+    revalidatePath('/api/public/projects');
+    // Revalidate the individual project page if it was published
+    if (project.slug) {
+      revalidatePath(`/projects/${project.slug}`);
+    }
+    
     return NextResponse.json({ data: project });
   } catch (error) {
     return handleError(error);
