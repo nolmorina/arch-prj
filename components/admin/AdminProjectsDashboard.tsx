@@ -60,6 +60,7 @@ type FormSectionProps = {
   title: string;
   open: boolean;
   onToggle: (group: FormGroupId) => void;
+  onAutofill?: () => void;
   children: ReactNode;
 };
 
@@ -77,6 +78,102 @@ const MIN_META_COUNT = 0;
 const MIN_GALLERY_DELETE_THRESHOLD = 0;
 const MAX_GALLERY_UPLOAD = 5;
 const MAX_GALLERY_COUNT = 15;
+
+const pickRandom = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+
+const SAMPLE_TITLES = [
+  "Aurora Glasshouse",
+  "Harborline Pavilion",
+  "Cedar Ridge Residence",
+  "Skyline Atelier",
+  "Canopy Wellness Center",
+  "Riverstone Retreat"
+];
+
+const SAMPLE_CATEGORIES = [
+  "Residential",
+  "Commercial",
+  "Institutional",
+  "Public",
+  "Interiors",
+  "Landscape"
+];
+
+const SAMPLE_LOCATIONS = [
+  "Oslo, Norway",
+  "Lisbon, Portugal",
+  "Kyoto, Japan",
+  "Austin, Texas",
+  "Vancouver, Canada",
+  "Tirana, Albania"
+];
+
+const SAMPLE_EXCERPTS = [
+  "A restrained intervention that frames light, landscape, and material honesty for modern living.",
+  "An adaptive reuse concept that choreographs movement through sculpted light wells and terraces.",
+  "An immersive retreat balancing biophilic design, parametric surfaces, and passive resilience strategies.",
+  "A community hub reimagining industrial footprints with porous edges and adaptable gathering zones."
+];
+
+const SAMPLE_PARAGRAPHS = [
+  "Conceived as a layered field condition, the project dissolves traditional room hierarchies in favor of adaptable thresholds that respond to program drift throughout the day.",
+  "A continuous datum of locally sourced stone anchors the plan, allowing the upper volumes to cantilever lightly above the revitalized public plaza below.",
+  "Interiors employ a restrained palette of charred timber, hand-troweled plaster, and softly reflective metals to amplify daylight and invite occupants to curate their own atmospheres.",
+  "Mechanical systems consolidate into a sculptural spine, freeing the perimeter for operable glazing and deep exterior fins that mitigate summer solar gain.",
+  "Rainwater harvesting terraces wrap the second level, feeding wetland planters that cleanse runoff while providing biodiverse habitats along the façade.",
+  "A network of tactile wayfinding elements—embedded brass rails, integrated seating niches, and acoustic screens—guides visitors intuitively through the building."
+];
+
+const SAMPLE_META_ENTRIES = [
+  { label: "Scope", value: "2,450 sqm" },
+  { label: "Status", value: "In progress" },
+  { label: "Client", value: "Municipal initiative" },
+  { label: "Team", value: "MOR Architecture Studio" },
+  { label: "Materials", value: "Cross-laminated timber, recycled steel" },
+  { label: "Program", value: "Community hub, makerspace, gallery" }
+];
+
+const SAMPLE_SERVICES = [
+  "Architectural design",
+  "Interior strategy",
+  "Landscape integration",
+  "Environmental graphics",
+  "Wayfinding system",
+  "Sustainability consulting"
+];
+
+const SAMPLE_COLLABORATORS = [
+  "Lumen Atelier — Lighting design",
+  "Forma Structural — Engineering",
+  "Northshore Studio — Landscape",
+  "Studio Arro — Branding",
+  "Acoustic Grid — Sound design",
+  "Copenhagen Craft — Fabrication"
+];
+
+const generateEssentialsAutofill = () => {
+  const title = pickRandom(SAMPLE_TITLES);
+  return {
+    title,
+    category: pickRandom(SAMPLE_CATEGORIES),
+    location: pickRandom(SAMPLE_LOCATIONS),
+    year: `${Math.floor(2015 + Math.random() * 9)}`,
+    excerpt: pickRandom(SAMPLE_EXCERPTS)
+  };
+};
+
+const generateNarrativeAutofill = () => {
+  const description = [...SAMPLE_PARAGRAPHS].sort(() => Math.random() - 0.5).slice(0, 3);
+  const meta = [...SAMPLE_META_ENTRIES].sort(() => Math.random() - 0.5).slice(0, 3);
+  const services = [...SAMPLE_SERVICES].sort(() => Math.random() - 0.5).slice(0, 3);
+  const collaborators = [...SAMPLE_COLLABORATORS].sort(() => Math.random() - 0.5).slice(0, 2);
+  return {
+    description,
+    meta,
+    services,
+    collaborators
+  };
+};
 
 const generateId = () =>
   globalThis.crypto?.randomUUID?.() ??
@@ -726,6 +823,49 @@ const syncRecordIntoState = useCallback(
     }
   };
 
+  const handleAutofillEssentials = useCallback(() => {
+    if (!draft) return;
+    const sample = generateEssentialsAutofill();
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const next: AdminProjectRecord = {
+        ...prev,
+        title: sample.title,
+        slug: slugManuallyEdited ? prev.slug : slugify(sample.title),
+        category: sample.category,
+        location: sample.location,
+      year: sample.year,
+        excerpt: sample.excerpt
+      };
+      return cloneProject(next);
+    });
+    setSlugManuallyEdited(false);
+    setOpenGroups((prev) => ({ ...prev, essentials: true }));
+    pushToast("info", "Essentials autofilled with sample content.");
+  }, [draft, slugManuallyEdited]);
+
+  const handleAutofillNarrative = useCallback(() => {
+    if (!draft) return;
+    const sample = generateNarrativeAutofill();
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const next: AdminProjectRecord = {
+        ...prev,
+        description: [...sample.description],
+        meta: sample.meta.map((item) => ({ ...item })),
+        services: [...sample.services],
+        collaborators: [...sample.collaborators]
+      };
+      return cloneProject(next);
+    });
+    setOpenGroups((prev) => ({ ...prev, narrative: true }));
+    pushToast("info", "Narrative autofilled with sample content.");
+  }, [draft]);
+
   const toggleGroup = (group: FormGroupId) => {
     setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }));
   };
@@ -955,6 +1095,8 @@ const hasDraft = Boolean(draft);
                     onSetHeroFromGallery={handleSetHeroFromGallery}
                     onPushToast={pushToast}
                     pendingUploads={pendingUploadsRef}
+                  onAutofillEssentials={handleAutofillEssentials}
+                  onAutofillNarrative={handleAutofillNarrative}
                   />
 
                   <ActionBar
@@ -1317,6 +1459,8 @@ type ProjectFormProps = {
   onSetHeroFromGallery: (entry: AdminGalleryImage) => void;
   onPushToast: (variant: Toast["variant"], message: string) => void;
   pendingUploads: MutableRefObject<Record<string, PendingUploadEntry>>;
+  onAutofillEssentials: () => void;
+  onAutofillNarrative: () => void;
 };
 
 const ACCEPTED_IMAGE_TYPES = new Set([
@@ -1362,7 +1506,9 @@ const ProjectForm = ({
   onRequestMediaLibrary,
   onSetHeroFromGallery,
   onPushToast,
-  pendingUploads
+  pendingUploads,
+  onAutofillEssentials,
+  onAutofillNarrative
 }: ProjectFormProps) => {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [serviceInput, setServiceInput] = useState("");
@@ -1566,6 +1712,7 @@ const ProjectForm = ({
         title="Essentials"
         open={openGroups.essentials}
         onToggle={onToggleGroup}
+        onAutofill={onAutofillEssentials}
       >
         <div className="space-y-4">
           <label className="block text-sm font-semibold uppercase tracking-[0.24em]">
@@ -1770,6 +1917,7 @@ const ProjectForm = ({
         title="Narrative & Info"
         open={openGroups.narrative}
         onToggle={onToggleGroup}
+        onAutofill={onAutofillNarrative}
       >
         <div className="space-y-6">
           <div>
@@ -1830,15 +1978,15 @@ const ProjectForm = ({
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {META_PRESETS.map((preset) => (
-                <button
+                {META_PRESETS.map((preset) => (
+              <button
                   key={`meta-preset-${preset}`}
-                  type="button"
+                type="button"
                   onClick={() => addMetaRow(preset)}
                   className="rounded-full border border-brand-secondary px-3 py-1 text-[0.65rem] uppercase tracking-[0.28em] text-text-muted transition hover:border-text hover:text-text"
-                >
+              >
                   {preset}
-                </button>
+              </button>
               ))}
             </div>
             <div className="mt-4 space-y-3">
@@ -2117,16 +2265,27 @@ const FormSection = ({
   title,
   open,
   onToggle,
+  onAutofill,
   children
 }: FormSectionProps) => (
   <div className="rounded-[32px] border border-brand-secondary/70 bg-white px-6 py-7 md:px-8 md:py-10">
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <p className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
           {title}
         </p>
         <p className="text-[0.75rem] text-text-muted">Manual save required</p>
       </div>
+      <div className="flex gap-2">
+        {typeof onAutofill === "function" ? (
+          <button
+            type="button"
+            onClick={onAutofill}
+            className="rounded-full border border-brand-secondary px-3 py-1 text-xs uppercase tracking-[0.28em] text-text-muted hover:border-text hover:text-text"
+          >
+            Autofill
+          </button>
+        ) : null}
       <button
         type="button"
         onClick={() => onToggle(id)}
@@ -2134,6 +2293,7 @@ const FormSection = ({
       >
         {open ? "Collapse" : "Expand"}
       </button>
+      </div>
     </div>
 
     <AnimatePresence initial={false}>
@@ -2306,17 +2466,6 @@ const ProjectHeroPreview = ({ project }: { project: AdminProjectRecord }) => {
   );
 };
 
-type ActionBarProps = {
-  status: ActionState;
-  isDirty: boolean;
-  canPublish: boolean;
-  currentStatus: AdminProjectStatus;
-  onSaveDraft: () => void;
-  onPublish: () => void;
-  onUnpublish?: () => void;
-  onDelete: () => void;
-};
-
 const ActionBar = ({
   status,
   isDirty,
@@ -2326,7 +2475,16 @@ const ActionBar = ({
   onPublish,
   onUnpublish,
   onDelete
-}: ActionBarProps) => {
+}: {
+  status: ActionState;
+  isDirty: boolean;
+  canPublish: boolean;
+  currentStatus: AdminProjectStatus;
+  onSaveDraft: () => void;
+  onPublish: () => void;
+  onUnpublish?: () => void;
+  onDelete: () => void;
+}) => {
   const disabled = status !== "idle";
   const primaryLabel =
     currentStatus === "published" ? "Publish update" : "Publish";
