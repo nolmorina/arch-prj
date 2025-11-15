@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Archivo } from "next/font/google";
 import "./globals.css";
 
+import SessionProvider from "@/components/providers/SessionProvider";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -28,7 +30,7 @@ type RootLayoutProps = {
 const RootLayout = ({ children }: RootLayoutProps) => (
   <html lang="en" className={`${inter.variable} ${archivo.variable}`}>
     <body className="font-sans text-text bg-background antialiased">
-      {children}
+      <SessionProvider>{children}</SessionProvider>
     </body>
   </html>
 );

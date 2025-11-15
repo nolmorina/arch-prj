@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import ProjectDetail from "@/components/projects/ProjectDetail";
-import { getProjectBySlug, projects } from "@/lib/projects";
+import {
+  fetchPublishedProjectBySlug,
+  fetchPublishedProjectSlugs
+} from "@/lib/projects";
 
 type ProjectPageProps = {
   params: {
@@ -10,12 +13,15 @@ type ProjectPageProps = {
   };
 };
 
-export function generateStaticParams() {
-  return projects.map((project) => ({ slug: project.slug }));
+export async function generateStaticParams() {
+  const slugs = await fetchPublishedProjectSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }: ProjectPageProps): Metadata {
-  const project = getProjectBySlug(params.slug);
+export async function generateMetadata({
+  params
+}: ProjectPageProps): Promise<Metadata> {
+  const project = await fetchPublishedProjectBySlug(params.slug);
 
   if (!project) {
     return {
@@ -29,8 +35,8 @@ export function generateMetadata({ params }: ProjectPageProps): Metadata {
   };
 }
 
-const ProjectPage = ({ params }: ProjectPageProps) => {
-  const project = getProjectBySlug(params.slug);
+const ProjectPage = async ({ params }: ProjectPageProps) => {
+  const project = await fetchPublishedProjectBySlug(params.slug);
 
   if (!project) {
     notFound();

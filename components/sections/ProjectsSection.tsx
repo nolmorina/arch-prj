@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
 import Container from "@/components/Container";
-import type { Project } from "@/lib/projects";
+import type { Project } from "@/lib/types/projects";
 import ProjectCard from "../ProjectCard";
 
 type ProjectsSectionProps = {
