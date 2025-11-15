@@ -6,6 +6,8 @@ import AboutSection from "@/components/sections/AboutSection";
 import ContactSection from "@/components/sections/ContactSection";
 import { fetchPublishedProjects } from "@/lib/projects";
 
+export const dynamic = 'force-dynamic';
+
 const HomePage = async () => {
   const projects = await fetchPublishedProjects();
   return (

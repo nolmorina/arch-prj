@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 import { publishAdminProject } from "@/lib/server/admin/projectService";
 import type { AdminProjectFormPayload } from "@/lib/types/admin";
@@ -31,6 +32,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
     const project = await publishAdminProject(params.id, body.project);
+    
+    // Revalidate public pages that display projects
+    revalidatePath('/');
+    revalidatePath('/api/public/projects');
+    // Revalidate the individual project page
+    if (project.slug) {
+      revalidatePath(`/projects/${project.slug}`);
+    }
+    
     return NextResponse.json({ data: project });
   } catch (error) {
     console.error("[api/admin/projects/:id/publish] error", error);
