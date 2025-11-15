@@ -310,31 +310,28 @@ const validateAdminPayload = (
     errors.push("Slug max length is 60 characters");
   }
 
-  if (!payload.category?.trim()) {
+  const category = payload.category?.trim() ?? "";
+  if (!category) {
     errors.push("Category is required");
+  } else if (category.length > 80) {
+    errors.push("Category max length is 80 characters");
   }
 
-  if (!payload.location?.trim()) {
+  const location = payload.location?.trim() ?? "";
+  if (!location) {
     errors.push("Location is required");
+  } else if (location.length > 160) {
+    errors.push("Location max length is 160 characters");
   }
 
-  if (!payload.year?.trim()) {
+  const year = payload.year?.trim() ?? "";
+  if (!year) {
     errors.push("Year is required");
-  } else if (!/^(19|20|21)\d{2}(-\d{2})?$/.test(payload.year.trim())) {
+  } else if (!/^(19|20|21)\d{2}(-\d{2})?$/.test(year)) {
     errors.push("Year must match YYYY or YYYY-YY");
   }
 
-  if (!options?.allowIncompleteMedia) {
-    if (!payload.heroImage?.trim()) {
-      errors.push("Hero image URL is required");
-    }
-
-    if (!payload.heroCaption?.trim()) {
-      errors.push("Hero caption is required");
-    } else if (payload.heroCaption.length > 140) {
-      errors.push("Hero caption max length is 140 characters");
-    }
-  } else if (payload.heroCaption.length > 140) {
+  if (payload.heroCaption.length > 140) {
     errors.push("Hero caption max length is 140 characters");
   }
 
@@ -344,45 +341,28 @@ const validateAdminPayload = (
     errors.push("Excerpt max length is 360 characters");
   }
 
-  if (payload.description.length < 2) {
-    errors.push("Provide at least two description paragraphs");
-  } else if (payload.description.some((paragraph) => paragraph.trim().length < 80)) {
-    errors.push("Each description paragraph must be at least 80 characters");
+  if (payload.meta.some((item) => item.label.trim().length > 60)) {
+    errors.push("Meta label max length is 60 characters");
   }
 
-  if (payload.meta.length < 3) {
-    errors.push("Meta list requires at least three items");
-  } else {
-    const labels = payload.meta.map((item) => item.label.trim().toLowerCase());
-    const hasDuplicate = labels.some(
-      (label, idx) => label && labels.indexOf(label) !== idx
-    );
-    if (hasDuplicate) {
-      errors.push("Meta labels must be unique");
+  if (payload.meta.some((item) => item.value.trim().length > 160)) {
+    errors.push("Meta value max length is 160 characters");
     }
-    if (payload.meta.some((item) => !item.label.trim() || !item.value.trim())) {
-      errors.push("Meta items require label and value");
-    }
+
+  if (payload.services.some((service) => service.trim().length > 120)) {
+    errors.push("Service label max length is 120 characters");
   }
 
-  if (!payload.services.length) {
-    errors.push("Include at least one service");
+  if (payload.collaborators.some((entry) => entry.trim().length > 200)) {
+    errors.push("Collaborator label max length is 200 characters");
   }
 
-  if (!payload.collaborators.length) {
-    errors.push("Include at least one collaborator");
-  }
-
-  if (!options?.allowIncompleteMedia) {
-    if (payload.gallery.length < 3) {
-      errors.push("Gallery requires at least three images");
-    } else if (payload.gallery.length > 15) {
+  if (payload.gallery.length > 15) {
       errors.push("Gallery can include up to fifteen images");
-    } else if (payload.gallery.some((item) => !item.src.trim() || !item.caption.trim())) {
-      errors.push("Gallery entries require image URL and caption");
-    }
-  } else if (payload.gallery.length > 15) {
-    errors.push("Gallery can include up to fifteen images");
+  } else if (
+    payload.gallery.some((item) => (item.caption ?? "").trim().length > 240)
+  ) {
+    errors.push("Gallery caption max length is 240 characters");
   }
 
   if (errors.length) {
@@ -563,19 +543,56 @@ const buildContentFromPayload = async (
   payload: AdminProjectFormPayload,
   session: ClientSession
 ) => {
-  const categoryId = await ensureCategory(payload.category, session);
+  const title = payload.title.trim();
+  const categoryLabel = payload.category.trim();
+  const location = payload.location.trim();
+  const year = payload.year.trim();
+  const excerpt = payload.excerpt.trim();
+  const heroImage = payload.heroImage?.trim() ?? "";
+  const heroCaption = payload.heroCaption?.trim() ?? "";
+
+  const descriptionEntries = payload.description
+    .map((body) => body.trim())
+    .filter((body) => body.length > 0);
+
+  const metaEntries = payload.meta
+    .map((item) => ({
+      label: item.label.trim(),
+      value: item.value.trim()
+    }))
+    .filter((item) => item.label.length > 0 && item.value.length > 0);
+
+  const serviceLabels = payload.services
+    .map((label) => label.trim())
+    .filter((label) => label.length > 0);
+
+  const collaboratorLabels = payload.collaborators
+    .map((label) => label.trim())
+    .filter((label) => label.length > 0);
+
+  const galleryEntries = payload.gallery
+    .map((item) => ({
+      assetId: item.assetId,
+      src: (item.src ?? "").trim(),
+      caption: (item.caption ?? "").trim(),
+      width: item.width,
+      height: item.height
+    }))
+    .filter((item) => item.assetId || item.src);
+
+  const categoryId = await ensureCategory(categoryLabel, session);
   const heroAsset = await findOrCreateMediaAsset(
     payload.heroAssetId,
-    payload.heroImage,
+    heroImage,
     "hero",
-    payload.heroCaption,
+    heroCaption,
     session,
     MEDIA_DIMENSIONS.hero.width,
     MEDIA_DIMENSIONS.hero.height
   );
 
   const galleryAssets = await Promise.all(
-    payload.gallery.map((item) =>
+    galleryEntries.map((item) =>
       findOrCreateMediaAsset(
         item.assetId,
         item.src,
@@ -588,21 +605,21 @@ const buildContentFromPayload = async (
     )
   );
 
-  const descriptionBlocks = payload.description.map((body, index) => ({
+  const descriptionBlocks = descriptionEntries.map((body, index) => ({
     _id: newObjectId(),
-    body: body.trim(),
+    body,
     order: index
   }));
 
-  const meta = payload.meta.map((item, index) => ({
+  const meta = metaEntries.map((item, index) => ({
     _id: newObjectId(),
-    label: item.label.trim(),
-    value: item.value.trim(),
+    label: item.label,
+    value: item.value,
     order: index
   }));
 
   const services = await Promise.all(
-    payload.services.map(async (label, index) => {
+    serviceLabels.map(async (label, index) => {
       const serviceId = await ensureService(label, session);
       return {
         _id: newObjectId(),
@@ -614,7 +631,7 @@ const buildContentFromPayload = async (
   );
 
   const collaborators = await Promise.all(
-    payload.collaborators.map(async (label, index) => {
+    collaboratorLabels.map(async (label, index) => {
       const collaboratorId = await ensureCollaborator(label, session);
       return {
         _id: newObjectId(),
@@ -625,7 +642,7 @@ const buildContentFromPayload = async (
     })
   );
 
-  const gallery = payload.gallery.map((item, index) => {
+  const gallery = galleryEntries.map((item, index) => {
     const asset = galleryAssets[index];
     return {
       _id: newObjectId(),
@@ -636,16 +653,28 @@ const buildContentFromPayload = async (
     };
   });
 
-  const searchTokens = buildSearchTokens(payload);
+  const searchTokens = buildSearchTokens({
+    ...payload,
+    title,
+    category: categoryLabel,
+    location,
+    year,
+    excerpt,
+    description: descriptionEntries,
+    meta: metaEntries,
+    services: serviceLabels,
+    collaborators: collaboratorLabels,
+    gallery: galleryEntries
+  });
 
   return {
     categoryId,
     hero: {
       assetId: heroAsset?._id,
-      src: heroAsset?.storageKey ?? payload.heroImage ?? "",
+      src: heroAsset?.storageKey ?? heroImage ?? "",
       width: heroAsset?.width ?? 0,
       height: heroAsset?.height ?? 0,
-      caption: payload.heroCaption
+      caption: heroCaption
     },
     descriptionBlocks,
     meta,
@@ -658,7 +687,7 @@ const buildContentFromPayload = async (
 
 const createHistoryEntry = async (
   projectId: Types.ObjectId,
-  action: "created" | "duplicated" | "saved" | "published" | "deleted",
+  action: "created" | "duplicated" | "saved" | "published" | "unpublished" | "deleted",
   session: ClientSession,
   extra?: Partial<{
     fromStatus: Project["status"];
@@ -685,7 +714,7 @@ const createHistoryEntry = async (
 
 const recordVersion = async (
   project: ProjectDocument,
-  source: "manual-save" | "publish",
+  source: "manual-save" | "publish" | "unpublish",
   session: ClientSession,
   published: boolean
 ) => {
@@ -733,10 +762,18 @@ const diffAssetIds = (
   return removed;
 };
 
+type PersistOptions = {
+  action?: "saved" | "published" | "unpublished";
+  versionSource?: "manual-save" | "publish" | "unpublish";
+  clearPublishedMetadata?: boolean;
+  removePublishedRecord?: boolean;
+};
+
 const persistProjectFromPayload = async (
   projectId: string,
   payload: AdminProjectFormPayload,
-  status: "draft" | "published"
+  status: "draft" | "published",
+  options: PersistOptions = {}
 ) => {
   const result = await runWithTransaction(async (session) => {
     validateAdminPayload(payload, { allowIncompleteMedia: status !== "published" });
@@ -751,21 +788,31 @@ const persistProjectFromPayload = async (
       throw new Error("Project not found");
     }
 
+    if (options.action === "unpublished" && existing.status !== "published") {
+      throw new Error("Project is not published");
+    }
+
     const slug = await ensureUniqueSlug(payload.slug, session, projectId);
     const content = await buildContentFromPayload(payload, session);
     const now = new Date();
     const previousAssets = collectProjectAssetIds(existing);
 
-    const update = {
+    const trimmedTitle = payload.title.trim();
+    const trimmedCategory = payload.category.trim();
+    const trimmedLocation = payload.location.trim();
+    const trimmedYear = payload.year.trim();
+    const trimmedExcerpt = payload.excerpt.trim();
+
+    const setUpdate: Record<string, unknown> = {
       slug,
-      title: payload.title,
-      titleSort: normalizeTitle(payload.title),
+      title: trimmedTitle,
+      titleSort: normalizeTitle(trimmedTitle),
       categoryId: content.categoryId,
-      categoryLabel: payload.category,
-      location: payload.location,
-      yearDisplay: payload.year,
+      categoryLabel: trimmedCategory,
+      location: trimmedLocation,
+      yearDisplay: trimmedYear,
       hero: content.hero,
-      excerpt: payload.excerpt,
+      excerpt: trimmedExcerpt,
       descriptionBlocks: content.descriptionBlocks,
       meta: content.meta,
       services: content.services,
@@ -774,18 +821,31 @@ const persistProjectFromPayload = async (
       searchTokens: content.searchTokens,
       status,
       updatedAt: now,
-      updatedBy: SYSTEM_USER_ID,
-      ...(status === "published"
-        ? {
-            publishedAt: now,
-            publishedBy: SYSTEM_USER_ID
-          }
-        : {})
+      updatedBy: SYSTEM_USER_ID
     };
+
+    const unsetUpdate: Record<string, 1> = {};
+
+    if (status === "published") {
+      setUpdate.publishedAt = now;
+      setUpdate.publishedBy = SYSTEM_USER_ID;
+    } else if (options.clearPublishedMetadata) {
+      unsetUpdate.publishedAt = 1;
+      unsetUpdate.publishedBy = 1;
+    }
+
+    const updateCommand: Record<string, unknown> = {
+      $set: setUpdate,
+      $inc: { revision: 1 }
+    };
+
+    if (Object.keys(unsetUpdate).length > 0) {
+      updateCommand.$unset = unsetUpdate;
+    }
 
     const project = await ProjectModel.findOneAndUpdate(
       { _id: projectId, deletedAt: null },
-      { $set: update, $inc: { revision: 1 } },
+      updateCommand,
       { new: true, session, runValidators: true }
     );
 
@@ -793,22 +853,23 @@ const persistProjectFromPayload = async (
       throw new Error("Project not found");
     }
 
-    const action = status === "published" ? "published" : "saved";
+    const action = options.action ?? (status === "published" ? "published" : "saved");
     await createHistoryEntry(project._id, action, session, {
       fromStatus: existing.status,
       toStatus: status,
       snapshotVersion: project.revision
     });
 
-    await recordVersion(
-      project,
-      status === "published" ? "publish" : "manual-save",
-      session,
-      status === "published"
-    );
+    const versionSource =
+      options.versionSource ??
+      (status === "published" ? "publish" : "manual-save");
+
+    await recordVersion(project, versionSource, session, status === "published");
 
     if (status === "published") {
       await upsertPublishedProject(project, session);
+    } else if (options.removePublishedRecord) {
+      await PublishedProjectModel.deleteOne({ projectId: project._id }).session(session);
     }
 
     const nextAssets = collectProjectAssetIds(project);
@@ -997,6 +1058,17 @@ export const publishAdminProject = (
   payload: AdminProjectFormPayload
 ) => persistProjectFromPayload(projectId, payload, "published");
 
+export const unpublishAdminProject = (
+  projectId: string,
+  payload: AdminProjectFormPayload
+) =>
+  persistProjectFromPayload(projectId, payload, "draft", {
+    action: "unpublished",
+    versionSource: "unpublish",
+    clearPublishedMetadata: true,
+    removePublishedRecord: true
+  });
+
 export const deleteAdminProject = async (projectId: string) => {
   const assetIds: string[] = [];
 
@@ -1013,11 +1085,25 @@ export const deleteAdminProject = async (projectId: string) => {
     }
 
     const previousStatus = project.status;
-    project.status = "archived";
-    project.deletedAt = new Date();
-    project.updatedAt = new Date();
-    project.updatedBy = SYSTEM_USER_ID;
-    await project.save({ session });
+    const collected = collectProjectAssetIds(project);
+
+    const now = new Date();
+    await ProjectModel.updateOne(
+      { _id: project._id },
+      {
+        $set: {
+          status: "archived",
+          deletedAt: now,
+          updatedAt: now,
+          updatedBy: SYSTEM_USER_ID
+        },
+        $unset: {
+          hero: "",
+          gallery: ""
+        }
+      },
+      { session }
+    );
 
     await createHistoryEntry(project._id, "deleted", session, {
       fromStatus: previousStatus,
@@ -1026,7 +1112,17 @@ export const deleteAdminProject = async (projectId: string) => {
 
     await PublishedProjectModel.deleteOne({ projectId: project._id }).session(session);
 
-    const collected = collectProjectAssetIds(project);
+    // Reflect removed media locally so the response mirrors persisted state.
+    project.hero = {
+      assetId: undefined,
+      src: "",
+      width: 0,
+      height: 0,
+      caption: "",
+      focalPoint: undefined
+    } as Project["hero"];
+    project.gallery = [];
+
     if (collected.hero) {
       assetIds.push(collected.hero);
     }

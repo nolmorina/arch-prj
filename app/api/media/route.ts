@@ -29,9 +29,17 @@ export async function GET(request: Request) {
 
   try {
     const client = getR2Client();
+    const bucket = getR2Bucket();
+    const sanitizedKey = key.split("?")[0];
+    const normalizedKey = sanitizedKey.startsWith(`${bucket}/`)
+      ? sanitizedKey.slice(bucket.length + 1)
+      : sanitizedKey.replace(/^\/+/, "");
+    if (!normalizedKey) {
+      return NextResponse.json({ error: "Invalid key parameter" }, { status: 400 });
+    }
     const command = new GetObjectCommand({
-      Bucket: getR2Bucket(),
-      Key: key.split("?")[0]
+      Bucket: bucket,
+      Key: normalizedKey
     });
     const object = await client.send(command);
     const stream = toWebReadableStream(object.Body);

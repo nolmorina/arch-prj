@@ -53,7 +53,7 @@ type Toast = {
 type ValidationResult = Record<string, string>;
 type SortOption = "recent" | "alpha";
 type PreviewMode = "card" | "hero";
-type ActionState = "idle" | "saving" | "publishing";
+type ActionState = "idle" | "saving" | "publishing" | "unpublishing";
 
 type FormSectionProps = {
   id: FormGroupId;
@@ -72,11 +72,9 @@ type PendingUploadEntry = {
 };
 
 const META_PRESETS = ["Location", "Year", "Scope", "Size", "Status"];
-const MIN_DESCRIPTION_COUNT = 2;
-const MIN_META_COUNT = 3;
-const MIN_GALLERY_COUNT = 3;
-const DEFAULT_GALLERY_TEMPLATE_COUNT = 1;
-const MIN_GALLERY_DELETE_THRESHOLD = 1;
+const MIN_DESCRIPTION_COUNT = 0;
+const MIN_META_COUNT = 0;
+const MIN_GALLERY_DELETE_THRESHOLD = 0;
 const MAX_GALLERY_UPLOAD = 5;
 const MAX_GALLERY_COUNT = 15;
 
@@ -127,6 +125,26 @@ const adaptProjectFromApi = (
     width: item.width,
     height: item.height
   }))
+});
+
+const initializeBlankProjectDraft = (
+  project: AdminProjectRecord
+): AdminProjectRecord => ({
+  ...project,
+  title: "",
+  slug: "",
+  category: "",
+  location: "",
+  year: "",
+  heroImage: "",
+  heroAssetId: undefined,
+  heroCaption: "",
+  excerpt: "",
+  description: [""],
+  meta: [],
+  services: [],
+  collaborators: [],
+  gallery: []
 });
 
 const toApiPayload = (
@@ -219,25 +237,27 @@ const areProjectsEqual = (
   );
 };
 
-const validateProject = (
+const collectEssentialErrors = (
   draft: AdminProjectRecord,
   records: AdminProjectRecord[]
 ): ValidationResult => {
   const errors: ValidationResult = {};
 
-  if (!draft.title.trim()) {
+  const title = draft.title.trim();
+  if (!title) {
     errors.title = "Title is required";
   } else if (draft.title.length > 120) {
     errors.title = "Max 120 characters";
   }
 
-  if (!draft.slug.trim()) {
+  const slug = draft.slug.trim();
+  if (!slug) {
     errors.slug = "Slug is required";
-  } else if (!/^[a-z0-9-]+$/.test(draft.slug)) {
+  } else if (!/^[a-z0-9-]+$/.test(slug)) {
     errors.slug = "Use lowercase letters, numbers, and hyphens";
   } else if (
     records.some(
-      (record) => record.slug === draft.slug && record.id !== draft.id
+      (record) => record.slug === slug && record.id !== draft.id
     )
   ) {
     errors.slug = "Slug must be unique";
@@ -251,60 +271,46 @@ const validateProject = (
     errors.location = "Location is required";
   }
 
-  if (!draft.year.trim()) {
+  const year = draft.year.trim();
+  if (!year) {
     errors.year = "Year is required";
-  } else if (!/^(19|20|21)\d{2}(-\d{2})?$/.test(draft.year.trim())) {
+  } else if (!/^(19|20|21)\d{2}(-\d{2})?$/.test(year)) {
     errors.year = "Use YYYY or YYYY-YY";
   }
 
-  if (!draft.heroCaption.trim()) {
-    errors.heroCaption = "Provide a hero caption";
-  } else if (draft.heroCaption.length > 140) {
-    errors.heroCaption = "Caption max is 140 characters";
-  }
-
-  if (!draft.excerpt.trim()) {
+  const excerpt = draft.excerpt.trim();
+  if (!excerpt) {
     errors.excerpt = "Excerpt is required";
   } else if (draft.excerpt.length > 360) {
     errors.excerpt = "Excerpt max is 360 characters";
   }
 
-  if (draft.description.length < MIN_DESCRIPTION_COUNT) {
-    errors.description = "Provide at least two paragraphs";
-  } else if (draft.description.some((paragraph) => paragraph.trim().length < 80)) {
-    errors.description = "Each paragraph should be at least 80 characters";
-  }
+  return errors;
+};
 
-  if (draft.meta.length < MIN_META_COUNT) {
-    errors.meta = "Enter at least three meta rows";
-  } else {
-    const labels = draft.meta.map((item) => item.label.trim().toLowerCase());
-    const hasDuplicate = labels.some(
-      (label, index) => label && labels.indexOf(label) !== index
-    );
-    if (hasDuplicate) {
-      errors.meta = "Meta labels must be unique";
-    }
-    if (draft.meta.some((item) => !item.label.trim() || !item.value.trim())) {
-      errors.meta = "Meta requires both label and value";
-    }
-  }
+const validateProject = (
+  draft: AdminProjectRecord,
+  records: AdminProjectRecord[],
+  baseErrors?: ValidationResult
+): ValidationResult => {
+  const errors: ValidationResult = {
+    ...(baseErrors ?? collectEssentialErrors(draft, records))
+  };
 
-  if (!draft.services.length) {
-    errors.services = "List at least one service";
-  }
-
-  if (!draft.collaborators.length) {
-    errors.collaborators = "List at least one collaborator";
-  }
-
-  if (draft.gallery.length < MIN_GALLERY_COUNT) {
-    errors.gallery = "Gallery needs at least three entries";
-  } else if (draft.gallery.some((item) => !item.caption.trim())) {
-    errors.gallery = "Gallery captions are required";
+  if (draft.heroCaption.length > 140) {
+    errors.heroCaption = "Caption max is 140 characters";
   }
 
   return errors;
+};
+
+const collectPublishBlockingIssues = (draft: AdminProjectRecord): string[] => {
+  const issues: string[] = [];
+  const heroUrl = serializeImageSource(draft.heroImage).trim();
+  if (!heroUrl) {
+    issues.push("Select a hero image before publishing.");
+  }
+  return issues;
 };
 
 const AdminProjectsDashboard = () => {
@@ -372,9 +378,14 @@ const AdminProjectsDashboard = () => {
     [currentRecord, draft]
   );
 
-  const validationErrors = useMemo(
-    () => (draft ? validateProject(draft, records) : {}),
+  const essentialErrors = useMemo(
+    () => (draft ? collectEssentialErrors(draft, records) : {}),
     [draft, records]
+  );
+
+  const validationErrors = useMemo(
+    () => (draft ? validateProject(draft, records, essentialErrors) : {}),
+    [draft, records, essentialErrors]
   );
 
   const categories = useMemo(() => {
@@ -409,13 +420,21 @@ const AdminProjectsDashboard = () => {
     return list;
   }, [records, categoryFilter, searchQuery, sortOrder]);
 
-  const categorySuggestions = useMemo(
-    () =>
-      Array.from(
-        new Set(records.map((record) => record.category).filter(Boolean))
-      ),
-    [records]
-  );
+  const categorySuggestions = useMemo(() => {
+    const existing = new Set(
+      records.map((record) => record.category.trim()).filter(Boolean)
+    );
+    const seeds = [
+      "Residential",
+      "Commercial",
+      "Institutional",
+      "Public",
+      "Landscape",
+      "Interiors"
+    ];
+    const combined = new Set([...seeds, ...Array.from(existing)]);
+    return Array.from(combined).slice(0, 12);
+  }, [records]);
 
   const handleGroupChange = (
     group: FormGroupId,
@@ -528,7 +547,8 @@ const syncRecordIntoState = useCallback(
         method: "POST"
       });
       const formatted = adaptProjectFromApi(project);
-      syncRecordIntoState(formatted);
+      const blankDraft = initializeBlankProjectDraft(formatted);
+      syncRecordIntoState(blankDraft);
       pushToast("info", "Blank project ready to edit.");
     } catch (error) {
       const message =
@@ -577,13 +597,8 @@ const syncRecordIntoState = useCallback(
         setSelectedId(next.id);
         setDraft(cloneProject(next));
       } else {
-        const created = await request<AdminProjectResponse>("/api/admin/projects", {
-          method: "POST"
-        });
-        const formatted = adaptProjectFromApi(created);
-        setRecords([formatted]);
-        setSelectedId(formatted.id);
-        setDraft(cloneProject(formatted));
+      setSelectedId(null);
+      setDraft(null);
       }
       setSlugManuallyEdited(false);
       pushToast("success", `Removed ${deleteTarget.title}`);
@@ -599,6 +614,22 @@ const syncRecordIntoState = useCallback(
 
   const handleSaveDraft = async () => {
     if (!draft) return;
+    if (Object.keys(essentialErrors).length > 0) {
+      pushToast("error", "Fill in the required essentials before saving.");
+      setOpenGroups((prev) => ({ ...prev, essentials: true }));
+      return;
+    }
+
+    const additionalIssues = Object.keys(validationErrors).filter(
+      (key) => !essentialErrors[key]
+    );
+
+    if (additionalIssues.length > 0) {
+      pushToast("error", "Resolve validation issues before saving.");
+      setOpenGroups((prev) => ({ ...prev, essentials: true }));
+      return;
+    }
+
     setActionState("saving");
     try {
       const preparedDraft = (await finalizePendingGallery()) ?? draft;
@@ -623,6 +654,12 @@ const syncRecordIntoState = useCallback(
 
   const handlePublish = async () => {
     if (!draft) return;
+    const blockingIssues = collectPublishBlockingIssues(draft);
+    if (blockingIssues.length > 0) {
+      blockingIssues.forEach((message) => pushToast("error", message));
+      setOpenGroups((prev) => ({ ...prev, essentials: true }));
+      return;
+    }
     if (Object.keys(validationErrors).length > 0) {
       pushToast("error", "Resolve validation issues before publishing");
       return;
@@ -643,6 +680,46 @@ const syncRecordIntoState = useCallback(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to publish project.";
+      pushToast("error", message);
+    } finally {
+      setActionState("idle");
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!draft) return;
+    if (Object.keys(essentialErrors).length > 0) {
+      pushToast("error", "Fill in the required essentials before unpublishing.");
+      setOpenGroups((prev) => ({ ...prev, essentials: true }));
+      return;
+    }
+
+    const additionalIssues = Object.keys(validationErrors).filter(
+      (key) => !essentialErrors[key]
+    );
+
+    if (additionalIssues.length > 0) {
+      pushToast("error", "Resolve validation issues before unpublishing.");
+      setOpenGroups((prev) => ({ ...prev, essentials: true }));
+      return;
+    }
+
+    setActionState("unpublishing");
+    try {
+      const preparedDraft = (await finalizePendingGallery()) ?? draft;
+      const payload = toApiPayload(preparedDraft);
+      const updated = await request<AdminProjectResponse>(
+        `/api/admin/projects/${preparedDraft.id}/unpublish`,
+        {
+          method: "POST",
+          body: JSON.stringify({ project: payload })
+        }
+      );
+      syncRecordIntoState(adaptProjectFromApi(updated));
+      pushToast("success", `${draft.title} reverted to draft.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to unpublish project.";
       pushToast("error", message);
     } finally {
       setActionState("idle");
@@ -687,6 +764,7 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
         method: "POST",
         body: JSON.stringify({
           projectId: draft.id,
+          projectSlug: draft.slug || draft.title,
           fileName: file.name,
           contentType: file.type,
           kind
@@ -775,13 +853,22 @@ const handleSetHeroFromGallery = (entry: AdminGalleryImage) => {
     return updated;
   }, [draft, uploadPendingFile]);
 
-if (isLoading || !draft) {
+if (isLoading) {
   return (
     <div className="relative min-h-screen bg-background text-text">
       <AdminNavBar />
       <main className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
-        {loadError ? (
-          <>
+        <p className="text-text-muted">Loading projects…</p>
+      </main>
+    </div>
+  );
+}
+
+if (loadError && records.length === 0) {
+  return (
+    <div className="relative min-h-screen bg-background text-text">
+      <AdminNavBar />
+      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
             <p className="text-text-muted">{loadError}</p>
             <button
               type="button"
@@ -792,18 +879,12 @@ if (isLoading || !draft) {
             >
               Retry
             </button>
-          </>
-        ) : (
-          <p className="text-text-muted">Loading projects…</p>
-        )}
       </main>
     </div>
   );
 }
 
-if (!draft) {
-  return null;
-}
+const hasDraft = Boolean(draft);
 
   return (
     <div className="relative min-h-screen bg-background text-text">
@@ -830,7 +911,15 @@ if (!draft) {
                 projects={filteredProjects}
                 categories={categories}
                 selectedId={selectedId ?? ""}
-                onSelect={setSelectedId}
+                onSelect={(id) => {
+                  setSelectedId((prev) => {
+                    if (prev === id) {
+                      setDraft(null);
+                      return null;
+                    }
+                    return id;
+                  });
+                }}
                 searchQuery={searchQuery}
                 onSearch={setSearchQuery}
                 categoryFilter={categoryFilter}
@@ -847,8 +936,11 @@ if (!draft) {
                 isHydrated={isHydrated}
               />
 
+              {hasDraft ? (
               <div className="space-y-10">
                 <div className="relative">
+                    {draft ? (
+                      <>
                   <ProjectForm
                     draft={draft}
                     openGroups={openGroups}
@@ -876,20 +968,37 @@ if (!draft) {
                     onPublish={() => {
                       void handlePublish();
                     }}
+                    onUnpublish={
+                      draft.status === "published"
+                        ? () => {
+                            void handleUnpublish();
+                          }
+                        : undefined
+                    }
                     onDelete={() => {
-                      if (draft) {
                         handleDeleteProject(draft);
-                      }
                     }}
                   />
+                      </>
+                    ) : null}
                 </div>
 
+                  {draft ? (
                 <PreviewStrip
                   project={draft}
                   mode={previewMode}
                   onModeChange={setPreviewMode}
                 />
+                  ) : null}
               </div>
+              ) : (
+                <EmptyEditorState
+                  onCreateProject={() => {
+                    void handleCreateProject();
+                  }}
+                  loadError={loadError}
+                />
+              )}
             </div>
           </Container>
         </section>
@@ -1256,7 +1365,6 @@ const ProjectForm = ({
   pendingUploads
 }: ProjectFormProps) => {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-  const [metaPreset, setMetaPreset] = useState(META_PRESETS[0]);
   const [serviceInput, setServiceInput] = useState("");
   const [collaboratorInput, setCollaboratorInput] = useState("");
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -1280,12 +1388,19 @@ const ProjectForm = ({
     }));
   };
 
+  const applyCategorySuggestion = (value: string) => {
+    onChange("essentials", (data) => ({
+      ...data,
+      category: value
+    }));
+  };
+
   const addMetaRow = (preset?: string) => {
     onChange("narrative", (data) => ({
       ...data,
       meta: [
         ...data.meta,
-        { label: preset ?? "Label", value: "" }
+        { label: preset ?? "", value: "" }
       ]
     }));
   };
@@ -1516,6 +1631,27 @@ const ProjectForm = ({
                 <option key={category} value={category} />
               ))}
             </datalist>
+            {categorySuggestions.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {categorySuggestions.map((category) => {
+                  const isActive = category === draft.category.trim();
+                  return (
+                    <button
+                      key={`category-chip-${category}`}
+                      type="button"
+                      onClick={() => applyCategorySuggestion(category)}
+                      className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.24em] transition ${
+                        isActive
+                          ? "border-text bg-text text-white"
+                          : "border-brand-secondary text-text-muted hover:border-text hover:text-text"
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
             {renderFieldError("category")}
           </label>
 
@@ -1681,28 +1817,29 @@ const ProjectForm = ({
           </div>
 
           <div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold uppercase tracking-[0.24em]">
                 Meta list
               </p>
-              <select
-                value={metaPreset}
-                onChange={(event) => setMetaPreset(event.target.value)}
-                className="rounded-full border border-brand-secondary px-3 py-1 text-[0.7rem] uppercase tracking-[0.28em]"
-              >
-                {META_PRESETS.map((preset) => (
-                  <option key={preset} value={preset}>
-                    {preset}
-                  </option>
-                ))}
-              </select>
               <button
                 type="button"
-                onClick={() => addMetaRow(metaPreset)}
+                onClick={() => addMetaRow()}
                 className="rounded-full border border-brand-secondary px-4 py-1 text-xs uppercase tracking-[0.28em]"
               >
-                Add
+                Add custom row
               </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {META_PRESETS.map((preset) => (
+                <button
+                  key={`meta-preset-${preset}`}
+                  type="button"
+                  onClick={() => addMetaRow(preset)}
+                  className="rounded-full border border-brand-secondary px-3 py-1 text-[0.65rem] uppercase tracking-[0.28em] text-text-muted transition hover:border-text hover:text-text"
+                >
+                  {preset}
+                </button>
+              ))}
             </div>
             <div className="mt-4 space-y-3">
               {draft.meta.map((item, index) => (
@@ -2176,6 +2313,7 @@ type ActionBarProps = {
   currentStatus: AdminProjectStatus;
   onSaveDraft: () => void;
   onPublish: () => void;
+  onUnpublish?: () => void;
   onDelete: () => void;
 };
 
@@ -2186,12 +2324,14 @@ const ActionBar = ({
   currentStatus,
   onSaveDraft,
   onPublish,
+  onUnpublish,
   onDelete
 }: ActionBarProps) => {
   const disabled = status !== "idle";
   const primaryLabel =
     currentStatus === "published" ? "Publish update" : "Publish";
   const saveLabel = currentStatus === "published" ? "Save changes" : "Save draft";
+  const showUnpublish = currentStatus === "published" && typeof onUnpublish === "function";
 
   const renderContent = (buttonClass: string) => (
     <>
@@ -2204,6 +2344,8 @@ const ActionBar = ({
             ? "Saving…"
             : status === "publishing"
             ? "Publishing…"
+            : status === "unpublishing"
+            ? "Unpublishing…"
             : isDirty
             ? "Unsaved edits"
             : "Up to date"}
@@ -2226,6 +2368,16 @@ const ActionBar = ({
         >
           {primaryLabel}
         </button>
+        {showUnpublish ? (
+          <button
+            type="button"
+            onClick={onUnpublish}
+            disabled={disabled}
+            className={`${buttonClass} border-orange-400 text-orange-600 disabled:opacity-40`}
+          >
+            Unpublish
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onDelete}
@@ -2295,16 +2447,7 @@ const DeleteConfirmModal = ({
   project,
   onCancel,
   onConfirm
-}: DeleteConfirmModalProps) => {
-  const [inputValue, setInputValue] = useState("");
-
-  useEffect(() => {
-    setInputValue("");
-  }, [project]);
-
-  const disabled = inputValue !== (project?.title ?? "");
-
-  return (
+}: DeleteConfirmModalProps) => (
     <AnimatePresence>
       {project ? (
         <motion.div
@@ -2328,16 +2471,9 @@ const DeleteConfirmModal = ({
               {project.title}
             </h3>
             <p className="mt-4 text-sm text-text-muted">
-              Type the project title to confirm removal. Static exports will be
-              regenerated on next publish.
+            Are you sure you want to delete this project? This action cannot be
+            undone.
             </p>
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-              className="mt-6 w-full rounded-none border border-brand-secondary/70 px-4 py-2 text-base focus:border-text focus:outline-none"
-              placeholder={project.title}
-            />
             <div className="mt-6 flex flex-wrap justify-center gap-4">
               <button
                 type="button"
@@ -2348,9 +2484,8 @@ const DeleteConfirmModal = ({
               </button>
               <button
                 type="button"
-                disabled={disabled}
                 onClick={onConfirm}
-                className="rounded-full border border-red-400 px-6 py-2 font-condensed text-xs uppercase tracking-[0.32em] text-red-600 disabled:opacity-40"
+              className="rounded-full border border-red-400 px-6 py-2 font-condensed text-xs uppercase tracking-[0.32em] text-red-600"
               >
                 Delete project
               </button>
@@ -2360,7 +2495,6 @@ const DeleteConfirmModal = ({
       ) : null}
     </AnimatePresence>
   );
-};
 
 const AdminNavBar = () => {
   const { data: session, status } = useSession();
@@ -2411,4 +2545,32 @@ const AdminNavBar = () => {
   </div>
 );
 };
+
+type EmptyEditorStateProps = {
+  onCreateProject: () => void;
+  loadError: string | null;
+};
+
+const EmptyEditorState = ({ onCreateProject, loadError }: EmptyEditorStateProps) => (
+  <div className="flex flex-col items-center justify-center rounded-[32px] border border-dashed border-brand-secondary/60 bg-white/70 px-10 py-16 text-center text-text">
+    <p className="font-condensed text-xs uppercase tracking-[0.32em] text-text-muted">
+      No project selected
+    </p>
+    <h3 className="mt-4 text-2xl font-semibold uppercase tracking-tightest">
+      Create your first project
+    </h3>
+    <p className="mt-3 max-w-md text-sm text-text-muted">
+      {loadError
+        ? "We couldn’t load any projects. Try again or start a new one."
+        : "Get started by creating a new project. You can always duplicate or import existing work later."}
+    </p>
+    <button
+      type="button"
+      onClick={onCreateProject}
+      className="mt-6 inline-flex items-center justify-center rounded-full border border-text px-8 py-3 font-condensed text-xs uppercase tracking-[0.32em] transition hover:bg-brand-secondary"
+    >
+      Create project
+    </button>
+  </div>
+);
 

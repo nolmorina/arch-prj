@@ -25,6 +25,11 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "60379d0ecea0a318a914ed4d5da4588d.r2.cloudflarestorage.com"
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "3000"
       }
     ]
   }
