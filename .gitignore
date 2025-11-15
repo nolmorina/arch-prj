@@ -15,3 +15,8 @@ Thumbs.db
 design*.json
 *design*.json
 
+# Technical / design exports
+db_design.json
+design_createProj.json
+old_db_design.json
+
