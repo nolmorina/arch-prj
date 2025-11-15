@@ -1,4 +1,4 @@
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Profile } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 import {
@@ -53,11 +53,13 @@ export const authOptions: NextAuthOptions = {
         if (profile?.email) {
           token.email = profile.email;
         }
-        if (profile?.picture) {
-          token.picture = profile.picture;
+        const picture = getProfilePicture(profile);
+        if (picture) {
+          token.picture = picture;
         }
-        if (profile && "name" in profile && profile.name) {
-          token.name = profile.name as string;
+        const name = getProfileName(profile);
+        if (name) {
+          token.name = name;
         }
       }
       return token;
@@ -77,6 +79,26 @@ export const authOptions: NextAuthOptions = {
       return session;
     }
   }
+};
+
+const getProfilePicture = (profile?: Profile | null) => {
+  if (profile && typeof profile === "object" && "picture" in profile) {
+    const value = (profile as Record<string, unknown>).picture;
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+  return undefined;
+};
+
+const getProfileName = (profile?: Profile | null) => {
+  if (profile && typeof profile === "object" && "name" in profile) {
+    const value = (profile as Record<string, unknown>).name;
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return undefined;
 };
 
 
